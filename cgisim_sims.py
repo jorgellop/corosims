@@ -574,7 +574,8 @@ class cgisim_sims():
         count_timestep = 0 # total timesteps for all batches
         for KK in range(num_batches):
             batch = schedule['batches'][KK]
-            exptime = batch['exptime']
+            if use_emccd:
+                exptime = batch['exptime']
             num_timesteps  = batch['num_timesteps']
             
             Ii_cube = np.zeros((num_timesteps,sz_im,sz_im))
