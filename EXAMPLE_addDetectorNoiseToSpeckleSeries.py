@@ -6,12 +6,9 @@ Created on Mon Jan 22 15:17:13 2024
 @author: llopsayson
 """
 
-import numpy as np
 from cgisim_sims import cgisim_sims
 import astropy.io.fits as pyfits
 import matplotlib.pylab as plt
-
-
 
 
 if __name__ == '__main__':
