@@ -1030,7 +1030,7 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         m = dx_pinhole_lamD * n_in * float(n_out) / pupil_diam_pix
         wavefront0 = mft2( wavefront0, dx_pinhole_lamD, pupil_diam_pix, n_out, -1)        # MFT to highly-sampled focal plane
         p = (radius(n_out)*dx_pinhole_diam_m) <= (pinhole_diam_m/2.0)
-        p = p.astype(int)
+        p = p.astype(np.int)
         wavefront0 *= p
         p = 0
         wavefront0 = mft2( wavefront0, dx_pinhole_lamD, pupil_diam_pix, n, +1)            # MFT back to virtual pupil
@@ -1176,7 +1176,7 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         cc = np.array([1.1797,1.1840,1.1865,1.1881,1.1890,1.1891,1.1887,1.1868,1.1852,1.1820,1.1778,1.1726])
         f = interp1d(lam_m, cc, kind='linear', fill_value='extrapolate')
         c = f( lambda_m )
-        wavefront *= np.exp((complex(0,1) * np.pi / lambda_m * c) * rsqr) * np.exp(-complex(0,1)*0.1)
+        wavefront *= np.exp((np.complex(0,1) * np.pi / lambda_m * c) * rsqr) * np.exp(-np.complex(0,1)*0.1)
 
     # shift image, if requested
 

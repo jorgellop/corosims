@@ -6,12 +6,11 @@ Created on Fri Feb  2 12:26:55 2024
 @author: llopsayson
 """
 from cgisim_sims import cgisim_sims
-import astropy.io.fits as pyfits
+# import astropy.io.fits as pyfits # SH: don't need these import statements in this script, unused 
 import matplotlib.pylab as plt
-import numpy as np
+# import numpy as np
 import proper
 import roman_phasec_proper
-import matplotlib.pylab as plt
 
 if __name__ == '__main__':
     
@@ -26,7 +25,7 @@ if __name__ == '__main__':
     
     #%%
     stellar_diameter = 4 #mas
-    cgisim_obj.sources[0]['star_vmag']=5.04
+    cgisim_obj.sources[0]['star_vmag']=5.04 # sources[0] = target star
     cgisim_obj.sources[0]['star_type']='g0v'
     cgisim_obj.sources[0]['name']='47UMa'
     cgisim_obj.sources[0]['stellar_diameter']= stellar_diameter #mas
@@ -36,4 +35,4 @@ if __name__ == '__main__':
                                      jitter_sig_x=.3,jitter_sig_y=.1,
                                      use_fpm=1,zindex=None,zval_m=None,
                                     passvalue_proper=None,
-                                    flag_return_contrast=True,use_emccd=False,exptime=1.0)
+                                    use_emccd=False,exptime=1.0) 

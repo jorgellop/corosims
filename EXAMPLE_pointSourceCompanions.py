@@ -130,7 +130,7 @@ if __name__ == '__main__':
     
     
     #%% roll subtract
-    from scipy.ndimage import rotate
+    from scipy.ndimage import rotate # TODO: move to top imports? - SH
     
     datadir = cgisim_obj.scene['outdir']
     outdir_images = datadir

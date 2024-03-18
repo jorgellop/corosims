@@ -43,8 +43,11 @@ class cgisim_sims():
         self.options = {}
              
         # Predefine options
-        dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_mild_contrast_dm1.fits' )
-        dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_mild_contrast_dm2.fits' )
+        # dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_mild_contrast_dm1.fits' )
+        # dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_mild_contrast_dm2.fits' )
+        # SH Changed for SPC WFOV
+        dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/spc_wide_band4_best_contrast_dm1.fits' )
+        dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/spc_wide_band4_best_contrast_dm2.fits' )
         self.options['dm1'] = dm1
         self.options['dm2'] = dm2
 
@@ -533,6 +536,29 @@ class cgisim_sims():
         # 
         # Generate speckle series based on scene as defined through class variable self.scene.
         # =============================================================================
+        '''
+        Generate speckle series based on scene as defined through self.scene class variable.
+
+        Parameters
+        ----------
+        outdir0 : str, optional
+            Directory to place output files, by default 'output/SpeckleSeries/'
+        num_images_printed : int, optional
+            Number of images to output, by default 0 ## TODO: confirm definition
+        vmin_fig : float, optional
+            vmin parameter for matplotlib.pyplot.imshow(), by default None
+        vmax_fig : float, optional
+            vmax parameter for matplotlib.pyplot.imshow(), by default None
+        title_fig : str, optional
+            Title for figure, by default ''
+        use_emccd : bool, optional
+            Whether or not to add emccd noise, by default False
+        use_photoncount : bool, optional
+            Whether or not to use photon counting mode (only when using emccd), by default False
+        flag_return_contrast : bool, optional
+            Whether or not to return the contrast of poitn source companion, by default True ## TODO: confirm definition
+
+        '''
         outdir = self.scene['outdir']#outdir0+self.scene['name']+'/'
         if not os.path.exists(outdir):
             os.makedirs(outdir)
@@ -717,6 +743,26 @@ class cgisim_sims():
         # 
         # Add a point source to the scene
         # =============================================================================
+        '''
+        Adds a point source to the scene
+
+        Parameters
+        ----------
+        central_sourceid : int, optional
+            ID for the host star, by default 0
+        sourceid : int, optional
+            ID for the planet, by default None
+        vmag : int, optional
+            Vmag of the host star, by default 5
+        xoffset : int, optional
+            x-direction offset in [mas], by default 1 (TODO: confirm units)
+        yoffset : int, optional
+            y-direction offset in [mas], by default 1 (TODO: confirm units)
+        name : str, optional
+            Name of point source companion, by default 'noname'
+        spectral_type : str, optional
+            Host star spectral type, by default 'a0v'
+        '''
         self.scene['count_other_sources']+=1
         if sourceid is None: # Then source is defined in this function
             self.sources.append({'name':name,
