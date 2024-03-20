@@ -600,7 +600,7 @@ class cgisim_sims():
         count_timestep = 0 # total timesteps for all batches
         for KK in range(num_batches):
             batch = schedule['batches'][KK]
-            exptime = batch['exptime']
+            exptime = batch['exptime']     
             num_timesteps  = batch['num_timesteps']
             
             Ii_cube = np.zeros((num_timesteps,sz_im,sz_im))
@@ -612,10 +612,13 @@ class cgisim_sims():
                 count_other_sources = self.scene['count_other_sources']
                 
                 Ii_othersources = np.zeros((sz_im,sz_im))
+                # For each of the defined additional point sources
                 for II in range(count_other_sources):
+                    # Get the ID of the central source in the image
                     central_sourceid = self.scene['other_sources'][II]['central_sourceid']
                     if batch['sourceid']==central_sourceid:
                         V3PA  = batch['V3PA'] # eg, Roll angle
+                        # Get separation of point source from central source
                         xoffset_othersources = self.scene['other_sources'][II]['xoffset']
                         yoffset_othersources = self.scene['other_sources'][II]['yoffset']
                         sep_source = np.sqrt(xoffset_othersources**2+yoffset_othersources**2)
