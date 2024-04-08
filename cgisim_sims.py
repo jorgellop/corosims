@@ -47,6 +47,10 @@ class cgisim_sims():
         dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_mild_contrast_dm2.fits' )
         self.options['dm1'] = dm1
         self.options['dm2'] = dm2
+        self.options['dm1_xc_act'] = 23.5
+        self.options['dm2_xc_act'] = 23.5
+        self.options['dm1_yc_act'] = 23.5
+        self.options['dm2_yc_act'] = 23.5
         
         self.options['no_integrate_pixels'] = False
         
@@ -66,7 +70,11 @@ class cgisim_sims():
                         source2,
                         source3]
 
-    def compute_EF(self,source_id,source_name=None,use_fpm=1,zindex=None,zval_m=None,passvalue_proper=None):
+    def compute_EF(self,source_id,source_name=None,use_fpm=1,zindex=None,zval_m=None,
+                   dm1_shear_x=0,dm2_shear_x=0,dm1_shear_y=0,dm2_shear_y=0,
+                   lyot_shift_x=0,lyot_shift_y=0,
+                   cgi_shift_x=0,cgi_shift_y=0,
+                   passvalue_proper=None):
         # =============================================================================
         # compute_offaxis_normalization
         # 
@@ -74,7 +82,14 @@ class cgisim_sims():
         # =============================================================================
         dm1 = self.options['dm1'] 
         dm2 = self.options['dm2'] 
-        params = {'use_errors':1, 'use_dm1':1, 'dm1_m':dm1, 'use_dm2':1, 'dm2_m':dm2, 'use_fpm':use_fpm}
+        dm1_xc_act = self.options['dm1_xc_act'] + dm1_shear_x/0.9906e-3
+        dm2_xc_act = self.options['dm2_xc_act'] + dm2_shear_x/0.9906e-3
+        dm1_yc_act = self.options['dm1_yc_act'] + dm1_shear_y/0.9906e-3
+        dm2_yc_act = self.options['dm2_yc_act'] + dm2_shear_y/0.9906e-3
+        params = {'use_errors':1, 'use_dm1':1, 'dm1_m':dm1, 'use_dm2':1, 'dm2_m':dm2, 'use_fpm':use_fpm, 
+                  'dm1_xc_act': dm1_xc_act,'dm2_xc_act': dm2_xc_act,'dm1_yc_act': dm1_yc_act,'dm2_yc_act': dm2_yc_act,
+                  'lyot_x_shift_m':lyot_shift_x,'lyot_y_shift_m':lyot_shift_y,
+                  'cgi_x_shift_m':cgi_shift_x,'cgi_y_shift_m':cgi_shift_y}
         if zindex is not None:
             params['zindex'] = zindex
             params['zval_m'] = zval_m
@@ -144,12 +159,18 @@ class cgisim_sims():
             lam_start_um = lam_um[ilam] - 0.5 * dlam_um
             lam_end_um = lam_um[ilam] + 0.5 * dlam_um
             bandpass_i = 'lam' + str(lam_start_um*1000) + 'lam' + str(lam_end_um*1000)
-            counts = polarizer_transmission * cgisim.cgisim_get_counts( star_type, self.bandpass, bandpass_i, nd, star_vmag, 'V', 'excam', info_dir )
+            if star_type is not None:
+                counts = polarizer_transmission * cgisim.cgisim_get_counts( star_type, self.bandpass, bandpass_i, nd, star_vmag, 'V', 'excam', info_dir )
+            else:
+                counts = 1
             # total_counts += counts
             counts_spectrum.append(counts)
         self.sources[source_id]['counts_spectrum'] = counts_spectrum
 
     def generate_image(self,source_id=0,use_fpm=1,jitter_sig_x=0,jitter_sig_y=0,zindex=None,zval_m=None,
+                       dm1_shear_x=0,dm2_shear_x=0,dm1_shear_y=0,dm2_shear_y=0,
+                       lyot_shift_x=0,lyot_shift_y=0,
+                       cgi_shift_x=0,cgi_shift_y=0,
                        passvalue_proper=None,
                        flag_return_contrast=True,use_emccd=False,exptime=1.0,x_ta_offset=0,y_ta_offset=0,
                        drift_vector=None):
@@ -158,7 +179,11 @@ class cgisim_sims():
         # 
         # Generate image wiht user defined aberrations
         # =============================================================================
-        EF = self.compute_EF(source_id,use_fpm=use_fpm,zindex=zindex,zval_m=zval_m,passvalue_proper=passvalue_proper)
+        EF = self.compute_EF(source_id,use_fpm=use_fpm,zindex=zindex,zval_m=zval_m,
+                             dm1_shear_x=dm1_shear_x,dm2_shear_x=dm2_shear_x,dm1_shear_y=dm1_shear_y,dm2_shear_y=dm2_shear_y,
+                             lyot_shift_x=lyot_shift_x,lyot_shift_y=lyot_shift_y,
+                             cgi_shift_x=cgi_shift_x,cgi_shift_y=cgi_shift_y,
+                             passvalue_proper=passvalue_proper)
         
         # Get normalization factor for contrast
         if flag_return_contrast:
@@ -304,6 +329,8 @@ class cgisim_sims():
         print("Reading in the jitter parameters and EFs into a cube")
 
         datadir_jitt = datadir_jitt0+'cor_type_'+self.cor_type+'_banpass'+self.bandpass+'_polaxis'+str(self.polaxis)+ '/fields/'
+        # import pdb 
+        # pdb.set_trace()
 
         # Read in files 
         inFile = pyfits.open(datadir_jitt+'offsets_mas.fits')
@@ -336,7 +363,6 @@ class cgisim_sims():
             # Delta EF
             dEF = EFII-EF0
             dEF_mat.append(dEF)
-        
         
         # Save all in the options dictionary
         self.options['jitter_dict'] = {'dEF_mat':dEF_mat,
@@ -442,7 +468,7 @@ class cgisim_sims():
         print( "Computing on-axis PSF - No T/T error" )
         params = {'use_errors':1, 'use_dm1':1, 'dm1_m':dm1, 'use_dm2':1, 'dm2_m':dm2}
         EF0, counts = cgisim.rcgisim( cgi_mode, cor_type, bandpass, polaxis, params,
-                                    output_file = outdir+'fields/EF0_on-axisPSF_noErrors') 
+                                    output_file = outdir+'fields/EF0') 
         
         # Loop for all cloud positions and populate cube
         source_x_offset_mas_arr = x_arr
@@ -458,8 +484,11 @@ class cgisim_sims():
         
         print('Done computing all EFs for jitter')
         
-    def generate_scene(self,name=None,jitter_x=0,jitter_y=0,num_timesteps=None,zindex=None,zval_m=None,source_schedule=None,
-                       passvalue_proper=None,exptime=None,bin_schedule=None):
+    def generate_scene(self,name=None,jitter_x=0,jitter_y=0,num_timesteps=None,zindex=None,zval_m=None,
+                       dm1_shear_x=None,dm2_shear_x=None,dm1_shear_y=None,dm2_shear_y=None,
+                       lyot_shift_x=None,lyot_shift_y=None,
+                       cgi_shift_x=None,cgi_shift_y=None,
+                       source_schedule=None,passvalue_proper=None,exptime=None,bin_schedule=None):
         # =============================================================================
         # generate_scene
         # 
@@ -487,6 +516,82 @@ class cgisim_sims():
         else:
             self.scene['zindex'] = None
             self.scene['zval_m'] = [None]*num_timesteps
+
+        if dm1_shear_x is not None:
+            sz_zs = np.shape(dm1_shear_x)
+            num_zs = sz_zs[0]
+            if num_zs!=num_timesteps:
+                print('Number of jitters and shears should match!')
+                return
+            self.scene['dm1_shear_x'] = dm1_shear_x
+        else:
+            self.scene['dm1_shear_x'] = np.ones(num_timesteps)*0
+        if dm2_shear_x is not None:
+            sz_zs = np.shape(dm2_shear_x)
+            num_zs = sz_zs[0]
+            if num_zs!=num_timesteps:
+                print('Number of jitters and shears should match!')
+                return
+            self.scene['dm2_shear_x'] = dm2_shear_x
+        else:
+            self.scene['dm2_shear_x'] = np.ones(num_timesteps)*0
+
+        if dm1_shear_y is not None:
+            sz_zs = np.shape(dm1_shear_y)
+            num_zs = sz_zs[0]
+            if num_zs!=num_timesteps:
+                print('Number of jitters and shears should match!')
+                return
+            self.scene['dm1_shear_y'] = dm1_shear_y
+        else:
+            self.scene['dm1_shear_y'] = np.ones(num_timesteps)*0
+        if dm2_shear_y is not None:
+            sz_zs = np.shape(dm2_shear_y)
+            num_zs = sz_zs[0]
+            if num_zs!=num_timesteps:
+                print('Number of jitters and shears should match!')
+                return
+            self.scene['dm2_shear_y'] = dm2_shear_y
+        else:
+            self.scene['dm2_shear_y'] = np.ones(num_timesteps)*0
+
+        if lyot_shift_x is not None:
+            sz_zs = np.shape(lyot_shift_x)
+            num_zs = sz_zs[0]
+            if num_zs!=num_timesteps:
+                print('Number of jitters and shears should match!')
+                return
+            self.scene['lyot_shift_x'] = lyot_shift_x
+        else:
+            self.scene['lyot_shift_x'] = np.ones(num_timesteps)*0
+        if lyot_shift_y is not None:
+            sz_zs = np.shape(lyot_shift_y)
+            num_zs = sz_zs[0]
+            if num_zs!=num_timesteps:
+                print('Number of jitters and shears should match!')
+                return
+            self.scene['lyot_shift_y'] = lyot_shift_y
+        else:
+            self.scene['lyot_shift_y'] = np.ones(num_timesteps)*0
+
+        if cgi_shift_x is not None:
+            sz_zs = np.shape(cgi_shift_x)
+            num_zs = sz_zs[0]
+            if num_zs!=num_timesteps:
+                print('Number of jitters and shears should match!')
+                return
+            self.scene['cgi_shift_x'] = cgi_shift_x
+        else:
+            self.scene['cgi_shift_x'] = np.ones(num_timesteps)*0
+        if cgi_shift_y is not None:
+            sz_zs = np.shape(cgi_shift_y)
+            num_zs = sz_zs[0]
+            if num_zs!=num_timesteps:
+                print('Number of jitters and shears should match!')
+                return
+            self.scene['cgi_shift_y'] = cgi_shift_y
+        else:
+            self.scene['cgi_shift_y'] = np.ones(num_timesteps)*0
 
         if passvalue_proper is not None:
             self.scene['passvalue_proper'] = passvalue_proper
@@ -556,6 +661,14 @@ class cgisim_sims():
         jitter_y = self.scene['jitter_y']
         zindex = self.scene['zindex']
         zval_m = self.scene['zval_m']
+        dm1_shear_x = self.scene['dm1_shear_x']
+        dm2_shear_x = self.scene['dm2_shear_x']
+        dm1_shear_y = self.scene['dm1_shear_y']
+        dm2_shear_y = self.scene['dm2_shear_y']
+        lyot_shift_x = self.scene['lyot_shift_x']
+        lyot_shift_y = self.scene['lyot_shift_y']
+        cgi_shift_x = self.scene['cgi_shift_x']
+        cgi_shift_y = self.scene['cgi_shift_y']
         passvalue_proper = self.scene['passvalue_proper']
         # exptime = self.scene['exptime']
         # bin_schedule = self.scene['bin_schedule']
@@ -625,7 +738,12 @@ class cgisim_sims():
                 print("Computing image num. {} out of {}".format(II+1,batch['num_timesteps']))
                 Ii_sum = self.generate_image(source_id=batch['sourceid'],use_fpm=1,
                                     jitter_sig_x=jitter_x[count_timestep],jitter_sig_y=jitter_y[count_timestep],
-                                    zindex=zindex,zval_m=zval_m[count_timestep],passvalue_proper=passvalue_proper,
+                                    zindex=zindex,zval_m=zval_m[count_timestep],
+                                    dm1_shear_x=dm1_shear_x[count_timestep],dm2_shear_x=dm2_shear_x[count_timestep],
+                                    dm1_shear_y=dm1_shear_y[count_timestep],dm2_shear_y=dm2_shear_y[count_timestep],
+                                    lyot_shift_x=lyot_shift_x[count_timestep],lyot_shift_y=lyot_shift_y[count_timestep],
+                                    cgi_shift_x=cgi_shift_x[count_timestep],cgi_shift_y=cgi_shift_y[count_timestep],
+                                    passvalue_proper=passvalue_proper,
                                     use_emccd=False,flag_return_contrast=flag_return_contrast)
                 if flag_other_sources:
                     # hdulist = pyfits.PrimaryHDU(Ii_sum)

@@ -16,12 +16,15 @@ import roman_phasec_proper
 if __name__ == '__main__':
     cgisim_obj = cgisim_sims()
     if True: # Best DMs
+        datadir_dms = 'data/dm_maps/'
+        # dm1 = proper.prop_fits_read( datadir_dms+'/HLC_falco_S1T5_NI1.5e-09_dm1.fits' )
+        # dm2 = proper.prop_fits_read( datadir_dms+'/HLC_falco_S1T5_NI1.5e-09_dm2.fits' )
         dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_best_contrast_dm1.fits' )
         dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_best_contrast_dm2.fits' )
         cgisim_obj.options['dm1'] = dm1
         cgisim_obj.options['dm2'] = dm2
 
-    name_scene = 'example_pointSourceCompanions_rollsAndRefv6'
+    name_scene = 'example_pointSourceCompanions_rollsAndRef_dmbest_morebatches'
     
     flag_use_emccd = False
     
@@ -32,8 +35,9 @@ if __name__ == '__main__':
     cgisim_obj.sources[0]['name']='47UMa'
     
     # Ref star
-    # starref_vmag = 2.25
-    starref_vmag = 5.04
+    starref_vmag = 2.25
+    # starref_vmag = 2.
+    # starref_vmag = 5.04
     cgisim_obj.sources[1]['star_vmag']=starref_vmag
     cgisim_obj.sources[1]['star_type']='g0v'
     cgisim_obj.sources[1]['name']='rPup'
@@ -45,7 +49,7 @@ if __name__ == '__main__':
     cgisim_obj.sources[2]['name']='47UMab'
 
     #%% Read in the jitter and Z4-11 timeseries from OS11 file
-    datadir_Z411 = '/Users/llopsayson/Documents/Python/cgisim_sims/data/hlc_os11_v2/'
+    datadir_Z411 = 'data/hlc_os11_v2/'
     flnm_Z411 = 'hlc_os11_inputs.fits'
     
     inFile = pyfits.open(datadir_Z411+flnm_Z411)
@@ -64,12 +68,27 @@ if __name__ == '__main__':
     for II in range(11-4):
         plt.plot(z411_mat[:,II])
         
+    dm1_shear_x = hlc_os11_inputs[:,68]
+    dm2_shear_x = hlc_os11_inputs[:,70]
+    dm1_shear_y = hlc_os11_inputs[:,69]
+    dm2_shear_y = hlc_os11_inputs[:,71]
+    
+    lyot_shift_x = hlc_os11_inputs[:,76]         # X,Y shear of Lyot stop mask in meters
+    lyot_shift_y = hlc_os11_inputs[:,77]  
+
+    cgi_shift_x = hlc_os11_inputs[:,66]         # CGI X & Y shear at instrument carrier interface (FSM)
+    cgi_shift_y = hlc_os11_inputs[:,67]  
+
+
     # Batch IDs
     batch_id_os11 = hlc_os11_inputs[:,2]
-    
+    # dasdasd
     #%% Create scene with LO errors
     cgisim_obj.generate_scene(name=name_scene,jitter_x=jitt_sig_x_arr,jitter_y=jitt_sig_y_arr,
-                              zindex=np.arange(4,11+1),zval_m=z411_mat)
+                              zindex=np.arange(4,11+1),zval_m=z411_mat,
+                              dm1_shear_x=dm1_shear_x,dm2_shear_x=dm2_shear_x,dm1_shear_y=dm1_shear_y,dm2_shear_y=dm2_shear_y,
+                              lyot_shift_x=lyot_shift_x,lyot_shift_y=lyot_shift_y,
+                              cgi_shift_x=cgi_shift_x,cgi_shift_y=cgi_shift_y)
     
     # Initialize schedule_index_array
     cgisim_obj.scene['schedule']['schedule_index_array'] = []
@@ -118,7 +137,7 @@ if __name__ == '__main__':
                                                      'exptime':exptime,
                                                      'V3PA':V3PA_roll2})
     cgisim_obj.scene['schedule']['schedule_index_array'].append(np.ones(num_frames_ref)*index_batch_roll2)
-
+    edawdawds
     #%% Add ppoint source companion
     cgisim_obj.add_point_source_to_scene(sourceid=2,central_sourceid=0,xoffset=200,yoffset=200)
     
