@@ -11,11 +11,10 @@
 # |   FNU    | erg / s / cm^2 / Hz   |  
 # | PHOTLAM  | photon / s / cm^2 / A |
 
-import matplotlib.pylab as plt
 import numpy as np
 
 def convert_custom_spectrum(source_path, source_file, stellar_spectrum_file, planet_separation, 
-                            R_p, output_dir, source_wavelength='um', stellar_flux_units='flam'):
+                            R_p, output_dir, output_dir2, source_wavelength='um', stellar_flux_units='flam'):
     '''
     Function to convert custom source albedo spectrum file into a file usable by CGISim
 
@@ -34,6 +33,8 @@ def convert_custom_spectrum(source_path, source_file, stellar_spectrum_file, pla
         Planet radius in km
     output_dir : str
         Output directory to save new spectral file to
+    output_dir2 : str
+        Second output directory to save new spectral file (one needs to go in code directory, the other in cgisim.lib_dir)
     source_wavelength : str, optional
         Wavelength in original spectrum file, by default 'um'
     stellar_flux_units : str, optional
@@ -76,10 +77,13 @@ def convert_custom_spectrum(source_path, source_file, stellar_spectrum_file, pla
     spectrum_data = np.column_stack((wavelength, planet_flux))
     filename = source_file[:-4] + f"_Angstroms_{stellar_flux_units}.dat"
     output_path = output_dir + filename
-    np.savetxt(output_path, spectrum_data, fmt='%.4f', header=f'{wave_units},{stellar_flux_units}', 
+    output_path2 = output_dir2 + filename
+    np.savetxt(output_path, spectrum_data, fmt='%.4E', header=f'{wave_units},{stellar_flux_units}', 
+               delimiter='\t', comments='')
+    np.savetxt(output_path2, spectrum_data, fmt='%.4E', header=f'{wave_units},{stellar_flux_units}', 
                delimiter='\t', comments='')
     
-    # return stellar_flux_atplanet, planet_flux, fpfs, wavelength
+    return alb_spec#, stellar_flux_atplanet, planet_flux, fpfs, wavelength
 
 def get_source_mag(m_star, R_p, d, alb_spec, wavelength, phi_lambda=1.0, band_center=5738.0):
     '''
@@ -118,3 +122,25 @@ def get_source_mag(m_star, R_p, d, alb_spec, wavelength, phi_lambda=1.0, band_ce
 
     return planet_mag
         
+if __name__ == '__main__':
+    # set paths
+    source_path = "/Users/sammyh/Documents/Projects/planet_modeling/Cahoy_et_al_2010_Albedo_Spectra/albedo_spectra/"
+    source_file = "Jupiter_1x_5AU_0deg.dat"
+    stellar_spectrum_file = "/Users/sammyh/Documents/Projects/planet_modeling/Cahoy_et_al_2010_Albedo_Spectra/SOLARSPECTRUM.DAT"
+    output_dir = "/Users/sammyh/Codes/cgisim_v3.1/cgisim/cgisim_info_dir/"
+    output_dir2 = "/Users/sammyh/.local/lib/python3.9/site-packages/cgisim-3.1-py3.9.egg/cgisim/cgisim_info_dir/"
+
+    # set constant planet properties
+    planet_separation = 5 # AU
+    R_p = 69911 # km
+    d = planet_separation * 1.496e8 # convert to km
+    wavelength = 5738 # wavelength center of band 1 in Angstroms
+    m_star = 5.0 # apparent magnitude of host star
+
+    alb_spec = convert_custom_spectrum(source_path=source_path, source_file=source_file, 
+                                       stellar_spectrum_file=stellar_spectrum_file,
+                                       planet_separation=planet_separation, R_p=R_p, output_dir=output_dir, 
+                                       output_dir2=output_dir2)
+    planet_mag = get_source_mag(m_star, R_p, d, alb_spec=alb_spec, wavelength=wavelength)
+    print('Planet magnitude = ', planet_mag)
+    
