@@ -584,8 +584,10 @@ class cgisim_sims():
         schedule = self.scene['schedule']
         num_batches = len(schedule['batches'])
             
+        flag_use_emccd = False # SH added
         if use_emccd:
             flag_return_contrast = False
+            flag_use_emccd = True # SH added 
             
         sz_im = self.sz_im
         
@@ -632,7 +634,7 @@ class cgisim_sims():
                         Ii_sourceII = self.generate_image(source_id=sourceid,use_fpm=1,
                                             jitter_sig_x=0,jitter_sig_y=0, #TODO: we assume no jitter
                                             passvalue_proper=passvalue_proper_othersources,
-                                            use_emccd=False,flag_return_contrast=flag_return_contrast)
+                                            use_emccd=flag_use_emccd,flag_return_contrast=flag_return_contrast)
                         if not ('maxI0_offaxis' in self.sources[central_sourceid]):
                             self.compute_offaxis_normalization(source_id=central_sourceid)
                         if flag_return_contrast:
@@ -649,7 +651,7 @@ class cgisim_sims():
                 Ii_sum = self.generate_image(source_id=batch['sourceid'],use_fpm=1,
                                     jitter_sig_x=jitter_x[count_timestep],jitter_sig_y=jitter_y[count_timestep],
                                     zindex=zindex,zval_m=zval_m[count_timestep],passvalue_proper=passvalue_proper,
-                                    use_emccd=False,flag_return_contrast=flag_return_contrast)
+                                    use_emccd=flag_use_emccd,flag_return_contrast=flag_return_contrast)
                 if flag_other_sources:
                     # hdulist = pyfits.PrimaryHDU(Ii_sum)
                     # hdulist.writeto(outdir+'Ii_sum.fits',overwrite=True)
