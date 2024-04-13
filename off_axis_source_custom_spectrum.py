@@ -30,7 +30,7 @@ def run_OS(scene_name, source_type_filename, source_name, planet_xseparation, pl
     '''
 
     cgisim_obj = cgisim_sims()
-    use_emccd_flag = False
+    use_emccd_flag = True
 
     # Set DM solutions
     dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir + '/examples/hlc_best_contrast_dm1.fits')
@@ -85,7 +85,7 @@ def run_OS(scene_name, source_type_filename, source_name, planet_xseparation, pl
     # Observe reference target
     index_batch_ref = 0
     batch_ID = 0
-    num_frames_ref = len(np.where(batch_id_os11==batch_ID)[0])
+    num_frames_ref = 720 #len(np.where(batch_id_os11==batch_ID)[0]) # SH changed to attempt to increase overall observation time of set (1440 * 30 s = 43200 s), 1440 / 2 = 720 TODO: check if this is correct
     sourceid_ref = 1 # choose the star
     V3PA = 0         # roll angle
     exptime = 30     
@@ -99,7 +99,7 @@ def run_OS(scene_name, source_type_filename, source_name, planet_xseparation, pl
     # Science observation roll 1
     index_batch_roll1 = 1
     batch_ID = 100
-    num_frames_roll1 = len(np.where(batch_id_os11==batch_ID)[0])
+    num_frames_roll1 = 720 # len(np.where(batch_id_os11==batch_ID)[0]) # SH CHANGED -- same reason as line 88
     sourceid_sci = 0    # choose source star
     V3PA_roll1 = 13     # roll angle
     exptime = 30
@@ -113,8 +113,7 @@ def run_OS(scene_name, source_type_filename, source_name, planet_xseparation, pl
     # Science observation roll 2
     index_batch_roll2 = 2
     batch_ID = 101
-    # num_frames_roll2 = 3
-    num_frames_roll2 = len(np.where(batch_id_os11==batch_ID)[0])
+    num_frames_roll2 = 720 # len(np.where(batch_id_os11==batch_ID)[0]) # SH CHANGED -- same reason as line 88
     sourceid_sci = 0 # what star?
     V3PA_roll2 = -13 #roll angle
     exptime = 30
@@ -177,12 +176,13 @@ def run_OS(scene_name, source_type_filename, source_name, planet_xseparation, pl
 
 if __name__ == '__main__':
     scene_name = 'custom_spectrum_companion_Jupiter5au_rollsAndRef_wEMCCD'
-    source_type_filename = 'Jupiter_1x_5AU_0deg_Angstroms_flam'
-    source_name = 'Jupiter_1x_5AU_0deg_Angstroms_flam'
+    source_type_filename = 'Jupiter_1x_2AU_0deg_Angstroms_FLAM'
+    source_name = 'Jupiter_1x_2AU_0deg_Angstroms_FLAM'
 
     # Location of point source in DH: For planet 5 AU from its star in a system that is 15 pc away, separation is 0.333304"
-    planet_xseparation = 300.3 # [mas] # TODO: change back to 333.3 mas in x,y and add emccd noise to compare to 5AU jupiter w/o emccd 
-    planet_yseparation = 300.3 # [mas]
+    # For planet at 2 AU in system at 10 pc, separation is 199.98 mas
+    planet_xseparation = 200.0 # [mas] # TODO: change back to 333.3 mas in x,y and add emccd noise to compare to 5AU jupiter w/o emccd 
+    planet_yseparation = 200.0 # [mas]
 
     run_OS(scene_name, source_type_filename, source_name, planet_xseparation, planet_yseparation)
     # TODO: something did not work when I ran this -- output is not correct 
