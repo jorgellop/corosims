@@ -85,7 +85,8 @@ def run_OS(scene_name, source_type_filename, source_name, planet_xseparation, pl
     # Observe reference target
     index_batch_ref = 0
     batch_ID = 0
-    num_frames_ref = 720 #len(np.where(batch_id_os11==batch_ID)[0]) # SH changed to attempt to increase overall observation time of set (1440 * 30 s = 43200 s), 1440 / 2 = 720 TODO: check if this is correct
+    num_frames_ref = len(np.where(batch_id_os11==batch_ID)[0]) # SH changed to attempt to increase overall observation time of set (1440 * 30 s = 43200 s), 1440 / 2 = 720 TODO: check if this is correct
+    print('num_frames_ref: ', num_frames_ref)
     sourceid_ref = 1 # choose the star
     V3PA = 0         # roll angle
     exptime = 30     
@@ -99,7 +100,7 @@ def run_OS(scene_name, source_type_filename, source_name, planet_xseparation, pl
     # Science observation roll 1
     index_batch_roll1 = 1
     batch_ID = 100
-    num_frames_roll1 = 720 # len(np.where(batch_id_os11==batch_ID)[0]) # SH CHANGED -- same reason as line 88
+    num_frames_roll1 = len(np.where(batch_id_os11==batch_ID)[0]) # SH CHANGED -- same reason as line 88
     sourceid_sci = 0    # choose source star
     V3PA_roll1 = 13     # roll angle
     exptime = 30
@@ -113,7 +114,7 @@ def run_OS(scene_name, source_type_filename, source_name, planet_xseparation, pl
     # Science observation roll 2
     index_batch_roll2 = 2
     batch_ID = 101
-    num_frames_roll2 = 720 # len(np.where(batch_id_os11==batch_ID)[0]) # SH CHANGED -- same reason as line 88
+    num_frames_roll2 = len(np.where(batch_id_os11==batch_ID)[0]) # SH CHANGED -- same reason as line 88
     sourceid_sci = 0 # what star?
     V3PA_roll2 = -13 #roll angle
     exptime = 30
@@ -185,4 +186,3 @@ if __name__ == '__main__':
     planet_yseparation = 200.0 # [mas]
 
     run_OS(scene_name, source_type_filename, source_name, planet_xseparation, planet_yseparation)
-    # TODO: something did not work when I ran this -- output is not correct 
