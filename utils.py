@@ -32,16 +32,24 @@ def crop_data(data, nb_pixels=50,centx=None,centy=None):
     return data[centx-nb_pixels:centx+nb_pixels,centy-nb_pixels:centy+nb_pixels]
 
 def degenPA(dx, dy):
-    rat_pos = dx/dy
-    if rat_pos>0:
+    if dy==0:
         if dx>0:
-            PA = (np.arctan((rat_pos)))#*180/np.pi
+            PA = np.pi/2
         else:
-            PA = (np.arctan(np.abs(rat_pos))+np.pi)#*180/np.pi
+            PA = 3*np.pi/2
     else:
-        if dx>0:
-            PA = (np.pi-np.arctan(np.abs(rat_pos)))#*180/np.pi
+        rat_pos = dx/dy
+        if rat_pos>0:
+            if dx>0:
+                PA = (np.arctan((rat_pos)))#*180/np.pi
+            else:
+                PA = (np.arctan(np.abs(rat_pos))+np.pi)#*180/np.pi
         else:
-            PA = (2*np.pi-np.arctan(np.abs(rat_pos)))#*180/np.pi
-    
+            if dx>0:
+                PA = (np.pi-np.arctan(np.abs(rat_pos)))#*180/np.pi
+            else:
+                PA = (2*np.pi-np.arctan(np.abs(rat_pos)))#*180/np.pi
+    # import pdb 
+    # pdb.set_trace()
+
     return (PA*180/np.pi )

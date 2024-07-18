@@ -172,7 +172,7 @@ class cgisim_sims():
                        lyot_shift_x=0,lyot_shift_y=0,
                        cgi_shift_x=0,cgi_shift_y=0,
                        passvalue_proper=None,
-                       flag_return_contrast=True,use_emccd=False,exptime=1.0,x_ta_offset=0,y_ta_offset=0,
+                       flag_return_contrast=False,use_emccd=False,exptime=1.0,x_ta_offset=0,y_ta_offset=0,
                        drift_vector=None):
         # =============================================================================
         # generate_image
@@ -232,8 +232,6 @@ class cgisim_sims():
                 # plt.imshow(W_jit)
                 # plt.figure(111)
                 # plt.imshow(W_conv0)
-                # import pdb 
-                # pdb.set_trace()
             if drift_vector is not None:
                 im_line_segment = np.zeros((npix, npix))
                 start_vect_x = int(npix/2+x_ta_offset/pix_scale)
