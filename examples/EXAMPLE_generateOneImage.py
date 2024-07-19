@@ -12,17 +12,20 @@ if __name__ == '__main__':
     
     # Select coronagraph and bandpass
     # cor_type = 'hlc_band1'
-    cor_type = 'spc-wide'
-    bandpass='4'
+    # cor_type = 'hlc_band4'
+    # cor_type = 'spc-wide'
+    cor_type = 'spc-wide_band1'
+    
+    bandpass='1'
     
     # Initialize object
     corgi = cgisim_sims.corgisims_core(cor_type = cor_type, bandpass=bandpass)
 
-    corgi.define_source('a0v', 12)
+    corgi.define_source('a0v', 2)
     #%% Generate image
-    im10 = corgi.generate_image(flag_return_contrast=False,
+    im10 = corgi.generate_image(flag_return_contrast=True,
                                 use_fpm=1,zindex=None,zval_m=None,
-                                jitter_sig_x=3,jitter_sig_y=0.,
+                                jitter_sig_x=0,jitter_sig_y=0.,
                                 passvalue_proper=None,use_emccd=False)
     
     fig = plt.figure(figsize=(6,6))

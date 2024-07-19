@@ -5,6 +5,7 @@ data/hlc_os11_v2/
 data/jitter_EFs_and_data/
 output/
 my_scripts/
+examples/output/
 main*
 ###################
 *.com

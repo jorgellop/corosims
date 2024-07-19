@@ -640,7 +640,3 @@ class Observation():
             flnm_out = os.path.join(self.paths['outdir'],'Ii_coadded_emccd_batch{}{}.fits'.format(batch['batch_id'],label_out))
             hdulist.writeto(flnm_out,overwrite=True)
         
-     
-            
-        
-        

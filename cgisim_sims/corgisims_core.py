@@ -42,7 +42,12 @@ class corgisims_core():
         
         # Define all other options in the options dictionary
         self.options = {}
-             
+        
+        localpath = os.path.dirname(os.path.abspath(__file__))
+        head, tail = os.path.split(localpath)
+        self.paths = {"datadir_jitter": os.path.join(head, 'data', 'jitter_EFs_and_data'),
+                      "dm_maps": os.path.join(head, 'data', 'dm_maps')}
+
         # Predefine options
         if cor_type=='hlc_band1' and bandpass=='1':
             dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_best_contrast_dm1.fits' )
@@ -50,9 +55,12 @@ class corgisims_core():
         elif cor_type=='spc-wide' and bandpass=='4':
             dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/spc_wide_band4_best_contrast_dm1.fits' )
             dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/spc_wide_band4_best_contrast_dm2.fits' )
-        elif cor_type=='hlc_band2' and bandpass=='2':
-            dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/HLC_falco_S8T3_NI6.5e-09_dm1.fits' )
-            dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/HLC_falco_S8T3_NI6.5e-09_dm2.fits' )
+        elif cor_type=='hlc_band4' and bandpass=='4':
+            dm1 = proper.prop_fits_read( os.path.join(self.paths["dm_maps"],'HLC4_Band4_falco_S8T3_NI6.5e-09_dm1.fits' ))
+            dm2 = proper.prop_fits_read( os.path.join(self.paths["dm_maps"],'HLC4_Band4_falco_S8T3_NI6.5e-09_dm2.fits' ))
+        elif cor_type=='spc-wide_band1' and bandpass=='1':
+            dm1 = proper.prop_fits_read( os.path.join(self.paths["dm_maps"],'SPLC_Band1_falco_S7T1_NI5.0e-09_dm1.fits' ))
+            dm2 = proper.prop_fits_read( os.path.join(self.paths["dm_maps"],'SPLC_Band1_falco_S7T1_NI5.0e-09_dm2.fits' ))
         self.options['dm1'] = dm1
         self.options['dm2'] = dm2
         self.options['dm1_xc_act'] = 23.5
@@ -67,9 +75,6 @@ class corgisims_core():
         # Define a default source
         self.define_source('a0v',2.0)
         
-        localpath = os.path.dirname(os.path.abspath(__file__))
-        head, tail = os.path.split(localpath)
-        self.datadir_jitter = os.path.join(head, 'data', 'jitter_EFs_and_data')
 
     def define_source(self,star_type,vmag):
         """
@@ -391,7 +396,7 @@ class corgisims_core():
         print("Reading in the jitter parameters and EFs into a cube")
         
         if datadir_jitt0 is None:
-            datadir_jitt0 = self.datadir_jitter
+            datadir_jitt0 = self.paths["datadir_jitter"]
         datadir_jitt = os.path.join(datadir_jitt0, 'cor_type_'+self.cor_type+'_banpass'+self.bandpass+'_polaxis'+str(self.polaxis), 'fields')
         
         # import pdb 
@@ -436,7 +441,7 @@ class corgisims_core():
                                        'y_jitt_offset_mas_arr':y_jitt_offset_mas_arr,
                                        'num_jitt':num_jitt}
 
-    def compute_jitter_EFs(self,outdir0='data/jitter_EFs_and_data/'):
+    def compute_jitter_EFs(self,d_ang1=0.15,r1_lim=0.6,outdir0=None):
         """
         Generate image.
     
@@ -444,10 +449,10 @@ class corgisims_core():
 
         Parameters
         ----------
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
+        d_ang1 : float
+            delta_r in mas in section 1
+        r1_lim : float
+            outer radious in mas for section 1
     
         Returns
         -------
@@ -456,9 +461,8 @@ class corgisims_core():
         """
         print('Computing all EFs for jitter a la Krist et al. 2023, this will take a lot of time!')
 
-        d_ang1 = 0.15 # mas
-        r1_lim = 0.6 # mas
-        
+        if outdir0 is None:
+            outdir0 = self.paths["datadir_jitter"]
         r_arr1 = np.arange(0,r1_lim,d_ang1)+d_ang1
         
         d_ang2 = np.logspace(0., 1.4, num=10)*0.15
