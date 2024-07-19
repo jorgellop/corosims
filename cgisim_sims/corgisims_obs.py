@@ -37,22 +37,20 @@ class Observation():
         self.batches = []
 
         # Predefine sources
-        source1 = {'source_index_id':0,
-            'name':'default_star1',
-                'star_type': 'a0v',
-                'vmag':2.0}
-        source2 = {'source_index_id':1,
-                   'name':'default_star2',
-                'star_type': 'a0v',
-                'vmag':2.0}
-        source3 = {'source_index_id':2,
-                   'name':'default_planet',
-                'star_type': None, # TODO: planet spectrum
-                'vmag':10.0}
-        self.sources = [source1,
-                        source2,
-                        source3]
-        self.num_sources = 3
+        # source1 = {'source_index_id':0,
+        #     'name':'default_star1',
+        #         'star_type': 'a0v',
+        #         'vmag':2.0}
+        # source2 = {'source_index_id':1,
+        #            'name':'default_star2',
+        #         'star_type': 'a0v',
+        #         'vmag':2.0}
+        # source3 = {'source_index_id':2,
+        #            'name':'default_planet',
+        #         'star_type': None, # TODO: planet spectrum
+        #         'vmag':10.0}
+        self.sources = []
+        self.num_sources = 0
 
         self.corgisim = corgisims_core(cor_type=cor_type, bandpass=bandpass)
         
@@ -67,6 +65,32 @@ class Observation():
         # if not os.path.exists(self.paths['outdir']):
         #     os.makedirs(self.paths['outdir'])
 
+    def create_source(self,name=None,vmag=None,star_type='a0v',spectrum=None):
+        """
+        Create oint source.
+    
+        self.sources will carry a list of dictionaries with all the information about the user-defined sources.     
+
+        Parameters
+        ----------
+        mp : ModelParameters
+            Structure containing optical model parameters
+    
+        """
+        if name is None:
+            name = 'source{}'.format(self.num_sources)
+
+        source = {'source_index_id':self.num_sources,
+                'name':name,
+                'star_type': star_type, # TODO: planet spectrum
+                'vmag':vmag,
+                'spectrum':spectrum}
+        
+        # append source dictionary to the sources list and update number of sources
+        self.sources.append(source)
+        self.num_sources = self.num_sources + 1
+        
+        
     def create_scene(self,name=None):
         """
         Generate astrophysical scene.
@@ -556,8 +580,11 @@ class Observation():
             flnm = os.path.join(datadir,'Ii_coadded_batch{}.fits'.format(batch["batch_id"]))
             data = pyfits.open(flnm)
             im_coadded = data[0].data
+            hdr = data[0].header
+            maxI0_offaxis = hdr['NORMI']
             batch['im_cube'] = im_cube
             batch['im_coadded'] = im_coadded
+            batch['maxI0_offaxis'] = maxI0_offaxis
             flnm = os.path.join(datadir,'Ii_cube_emccd_batch{}.fits'.format(batch["batch_id"]))
             if os.path.exists(flnm):
                 data = pyfits.open(flnm)

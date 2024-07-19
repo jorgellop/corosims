@@ -44,8 +44,15 @@ class corgisims_core():
         self.options = {}
              
         # Predefine options
-        dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_mild_contrast_dm1.fits' )
-        dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_mild_contrast_dm2.fits' )
+        if cor_type=='hlc_band1' and bandpass=='1':
+            dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_best_contrast_dm1.fits' )
+            dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_best_contrast_dm2.fits' )
+        elif cor_type=='spc-wide' and bandpass=='4':
+            dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/spc_wide_band4_best_contrast_dm1.fits' )
+            dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/spc_wide_band4_best_contrast_dm2.fits' )
+        elif cor_type=='hlc_band2' and bandpass=='2':
+            dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/HLC_falco_S8T3_NI6.5e-09_dm1.fits' )
+            dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/HLC_falco_S8T3_NI6.5e-09_dm2.fits' )
         self.options['dm1'] = dm1
         self.options['dm2'] = dm2
         self.options['dm1_xc_act'] = 23.5

@@ -11,9 +11,9 @@ import matplotlib.pylab as plt
 if __name__ == '__main__':
     
     # Select coronagraph and bandpass
-    cor_type = 'hlc_band1'
-    # cor_type = 'spc-wide'
-    bandpass='1'
+    # cor_type = 'hlc_band1'
+    cor_type = 'spc-wide'
+    bandpass='4'
     
     # Initialize object
     corgi = cgisim_sims.corgisims_core(cor_type = cor_type, bandpass=bandpass)

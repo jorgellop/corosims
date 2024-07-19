@@ -1,36 +1,27 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Jan 10 16:23:25 2024
-
-@author: llopsayson
-"""
-
 import cgisim_sims
 import matplotlib.pylab as plt
 import numpy as np
+import os
 
 if __name__ == '__main__':
     
     name_speckleSeries = 'example_speckleSeries_ScienceAndRef'
     obs_obj = cgisim_sims.Observation(name=name_speckleSeries)
-
-    
-    flag_use_emccd = False
     
     #%% Define source and scene
     # Science target star
     star_vmag = 2.25
-    obs_obj.sources[0]['vmag']=star_vmag
-    obs_obj.sources[0]['star_type']='a0v'
-    obs_obj.sources[0]['name']='referenceStar'
+    star_type = 'a0v'
+    name_source = 'referenceStar'
+    obs_obj.create_source(star_type=star_type,vmag=star_vmag,name=name_source)
+    print("You added a source: {}, {}, vmag={}".format(obs_obj.sources[0]['name'],obs_obj.sources[0]['star_type'],obs_obj.sources[0]['vmag']))
     
     # Ref target star
     star_vmag = 5.04
-    obs_obj.sources[1]['vmag']=star_vmag
-    obs_obj.sources[1]['star_type']='g0v'
-    obs_obj.sources[1]['name']='47UMa'
-    
+    star_type = 'g0v'
+    name_source = '47UMa'
+    obs_obj.create_source(star_type=star_type,vmag=star_vmag,name=name_source)
+    print("You added a source: {}, {}, vmag={}".format(obs_obj.sources[1]['name'],obs_obj.sources[1]['star_type'],obs_obj.sources[1]['vmag']))
     
     obs_obj.create_scene(name='SCI')
     obs_obj.add_point_source_to_scene(scene_name='SCI',source_name='47UMa')
@@ -38,17 +29,17 @@ if __name__ == '__main__':
     obs_obj.add_point_source_to_scene(scene_name='REF',source_name='referenceStar')
 
     #%% Define jitter timeseries
-    num_timesteps_batch0=10
+    num_timesteps_batch0 = 3
     jitter_sig_x = 0.5 # mas
     jitter_sig_y = 0.5 # mas
-    jitt_sig_x_arr_0 = np.random.normal(0,jitter_sig_x,num_timesteps_batch0)
-    jitt_sig_y_arr_0 = np.random.normal(0,jitter_sig_y,num_timesteps_batch0)
+    jitt_sig_x_arr_0 = jitter_sig_x + np.random.normal(0,jitter_sig_x/10,num_timesteps_batch0)
+    jitt_sig_y_arr_0 = jitter_sig_y + np.random.normal(0,jitter_sig_y/10,num_timesteps_batch0)
     
-    num_timesteps_batch1=30
+    num_timesteps_batch1 = 5
     jitter_sig_x = 3 # mas
-    jitter_sig_y = 0.5 # mas
-    jitt_sig_x_arr_1 = np.random.normal(0,jitter_sig_x,num_timesteps_batch1)
-    jitt_sig_y_arr_1 = np.random.normal(0,jitter_sig_y,num_timesteps_batch1)
+    jitter_sig_y = 1 # mas
+    jitt_sig_x_arr_1 = jitter_sig_x + np.random.normal(0,jitter_sig_x/10,num_timesteps_batch1)
+    jitt_sig_y_arr_1 = jitter_sig_y + np.random.normal(0,jitter_sig_y/10,num_timesteps_batch1)
 
     plt.figure(111)
     plt.plot(np.append(jitt_sig_x_arr_0,jitt_sig_x_arr_1))
@@ -86,6 +77,7 @@ if __name__ == '__main__':
     pixel_scale = obs_obj.corgisim.options['pixel_scale']
     max_fov = obs_obj.corgisim.sz_im* pixel_scale / 2
     zoom_pix = 30
+    fig_ni, ax_ni = plt.subplots(1,1,figsize=(6, 6)) # For contrast curve
     for II,batch in enumerate(batches):
         # generate figures
         fig, axes = plt.subplots(2, 2,figsize=(2* 4.5, 2 * 3.75))#, dpi=300)
@@ -137,3 +129,20 @@ if __name__ == '__main__':
         # axes[1,1].set_ylabel('Dec [arcsec]', fontsize = fntsz)
         axes[1,1].set_title('Coadded Image - With CCD Noise', fontsize = fntsz)
     
+        fig.suptitle('Batch {}'.format(batch['batch_id']), fontsize=fntsz+2)
+        fig.savefig(os.path.join(obs_obj.paths["outdir"],'images_batch{}.png'.format(batch['batch_id'])))
+
+        
+        
+        # Contrast Curve
+        ni_im = batch['im_coadded']/ batch['maxI0_offaxis']
+        sep_arr,ni_curve = obs_obj.corgisim.compute_contrast_curve(ni_im,iwa=3,owa=9,d_sep=0.5)
+        
+        # Plot
+        ax_ni.plot(sep_arr,ni_curve, label='Batch {}'.format(batch['batch_id']))
+    ax_ni.legend(fontsize=fntsz)
+    ax_ni.set_xlabel('Angular Separation', fontsize=fntsz)
+    ax_ni.set_ylabel('Norm. Int.', fontsize=fntsz)
+    ax_ni.grid(True)
+
+    fig_ni.savefig(os.path.join(obs_obj.paths["outdir"],'contrast_curves.png'))
