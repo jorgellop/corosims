@@ -397,7 +397,7 @@ class corgisims_core():
         
         if datadir_jitt0 is None:
             datadir_jitt0 = self.paths["datadir_jitter"]
-        datadir_jitt = os.path.join(datadir_jitt0, 'cor_type_'+self.cor_type+'_banpass'+self.bandpass+'_polaxis'+str(self.polaxis), 'fields')
+        datadir_jitt = os.path.join(datadir_jitt0, 'cor_type_'+self.cor_type+'_band'+self.bandpass+'_polaxis'+str(self.polaxis), 'fields')
         
         # import pdb 
         # pdb.set_trace()
@@ -468,7 +468,7 @@ class corgisims_core():
         d_ang2 = np.logspace(0., 1.4, num=10)*0.15
         
         # Number of annuli
-        num_annuli1 = len(r_arr1) 
+        num_annuli1 = len(r_arr1)
         num_annuli2 = len(d_ang2)
         
         # init x_arr and y_arr
@@ -515,15 +515,15 @@ class corgisims_core():
         cor_type = self.cor_type
         bandpass = self.bandpass
         polaxis = self.polaxis
-        outdir = outdir0+'cor_type_'+cor_type+'_banpass'+bandpass+'_polaxis'+str(polaxis)+'/'
+        outdir = os.path.join(outdir0,'cor_type_'+cor_type+'_band'+bandpass+'_polaxis'+str(polaxis))
         if not os.path.exists(outdir):
             os.makedirs(outdir)
-            os.makedirs(outdir+'fields/')
+            os.makedirs(os.path.join(outdir,'fields'))
 
         # Save A array
         A_arr = A_arr/np.sum(A_arr)
         hdulist = pyfits.PrimaryHDU(A_arr)
-        hdulist.writeto(outdir+'fields/A_areas.fits',overwrite=True)
+        hdulist.writeto(os.path.join(outdir,'fields','A_areas.fits'),overwrite=True)
         
         # Plot cloud like in Krist+2023
         fntsz = 18
@@ -534,7 +534,7 @@ class corgisims_core():
         plt.ylabel('Y [mas]',fontsize=fntsz);plt.yticks(fontsize=fntsz)
         plt.grid()
         plt.title('Jitter Points {}'.format(len(x_arr)),fontsize=fntsz)
-        plt.savefig(outdir+'jittercloud.png', dpi=500)
+        plt.savefig(os.path.join(outdir,'jittercloud.png'), dpi=500)
 
         #% Generate cube of delta-EFs
         # Generate EF0, centered, no errors
@@ -547,7 +547,7 @@ class corgisims_core():
         print( "Computing on-axis PSF - No T/T error" )
         params = {'use_errors':1, 'use_dm1':1, 'dm1_m':dm1, 'use_dm2':1, 'dm2_m':dm2}
         EF0, counts = cgisim.rcgisim( cgi_mode, cor_type, bandpass, polaxis, params,
-                                    output_file = outdir+'fields/EF0') 
+                                    output_file = os.path.join(outdir,'fields','EF0')) 
         
         # Loop for all cloud positions and populate cube
         source_x_offset_mas_arr = x_arr
@@ -557,9 +557,9 @@ class corgisims_core():
             params = {'use_errors':1, 'use_dm1':1, 'dm1_m':dm1, 'use_dm2':1, 'dm2_m':dm2, 
                       'source_x_offset_mas':source_x_offset_mas, 'source_y_offset_mas':source_y_offset_mas} 
             EF, counts = cgisim.rcgisim( cgi_mode, cor_type, bandpass, polaxis, params,
-                                        output_file = outdir+'fields/EF{}'.format(II+1))
+                                        output_file = os.path.join(outdir,'fields','EF{}'.format(II+1)))
         hdulist = pyfits.PrimaryHDU(np.array([source_x_offset_mas_arr,source_y_offset_mas_arr]))
-        hdulist.writeto(outdir+'fields/offsets_mas.fits',overwrite=True)
+        hdulist.writeto(os.path.join(outdir,'fields','offsets_mas.fits'),overwrite=True)
         
         print('Done computing all EFs for jitter')
 
