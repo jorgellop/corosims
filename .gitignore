@@ -7,7 +7,7 @@ output/
 my_scripts/
 examples/output/
 main*
-buil/
+build/
 cgisim_sims.egg-info/
 ###################
 *.com
