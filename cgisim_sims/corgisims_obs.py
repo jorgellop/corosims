@@ -36,19 +36,7 @@ class Observation():
         self.num_batches = 0
         self.batches = []
 
-        # Predefine sources
-        # source1 = {'source_index_id':0,
-        #     'name':'default_star1',
-        #         'star_type': 'a0v',
-        #         'vmag':2.0}
-        # source2 = {'source_index_id':1,
-        #            'name':'default_star2',
-        #         'star_type': 'a0v',
-        #         'vmag':2.0}
-        # source3 = {'source_index_id':2,
-        #            'name':'default_planet',
-        #         'star_type': None, # TODO: planet spectrum
-        #         'vmag':10.0}
+        # An Observation has a set of sources, here initialized as zero
         self.sources = []
         self.num_sources = 0
 
@@ -349,7 +337,7 @@ class Observation():
             if not os.path.exists(outdir_images):
                 os.makedirs(outdir_images)
         
-        # TODO bellow
+        # TODO below
         if not hasattr(self,'scenes'):
             print('You havent defined a scene')
             return []
@@ -364,11 +352,11 @@ class Observation():
         sz_im = self.corgisim.sz_im
         
         # Generate mask
-        sampling_hlc = {'hlc_band1':{'1':0.435}} #TODO
+        sampling = self.corgisim.options['sampling'][self.corgisim.bandpass]
         iwa = 3
         owa = 9
-        iwa_mask = make_circ_mask(sz_im,0,0,iwa/sampling_hlc['hlc_band1']['1'])
-        owa_mask = make_circ_mask(sz_im,0,0,owa/sampling_hlc['hlc_band1']['1'])
+        iwa_mask = make_circ_mask(sz_im,0,0,iwa/sampling)
+        owa_mask = make_circ_mask(sz_im,0,0,owa/sampling)
         mask_field = owa_mask-iwa_mask
         
         for batch in batch_list:
@@ -401,6 +389,7 @@ class Observation():
             
             Ii_offaxis = np.zeros((sz_im,sz_im))
             for source_offaxis_dict in sources_offaxis:
+                source_offaxis = self.sources[source_offaxis_dict["source_index_id"]]
                 # X and Y separation:
                 x_y_separation_mas = source_offaxis_dict["x_y_separation_mas"]
                 sep_source = np.sqrt(x_y_separation_mas[0]**2+x_y_separation_mas[1]**2)
@@ -409,10 +398,14 @@ class Observation():
                 yoffset = sep_source*np.cos((PA+V3PA)*np.pi/180)
                 passvalue_proper = {'source_x_offset_mas':xoffset, 
                                     'source_y_offset_mas':yoffset} 
-                
+                # import pdb 
+                # pdb.set_trace()
+
+                # # Define source in the corgisim_core object, #TODO: i don't know if I like this way of doing it...
+                # self.corgisim.compute_spectrum(source_offaxis_dict["star_type"],source_offaxis_dict["vmag"])
                 # Define source in the corgisim_core object, #TODO: i don't know if I like this way of doing it...
-                self.corgisim.compute_spectrum(source_offaxis_dict["star_type"],source_offaxis_dict["vmag"])
-                
+                self.corgisim.source = source_offaxis
+
                 # Generate image
                 Ii_offaxis = Ii_offaxis + self.corgisim.generate_image(use_fpm=1,
                                                                         jitter_sig_x=0,jitter_sig_y=0, # we assume no jitter for an off-axis source
@@ -461,7 +454,7 @@ class Observation():
                     
                     # Produce Images if required by user
                     if II<num_images_printed:
-                        Ii_crop = crop_data(Ii_onaxis_II*mask_field, nb_pixels=int(owa/sampling_hlc['hlc_band1']['1']*1.4)) #TODO: Sampling!
+                        Ii_crop = crop_data(Ii_onaxis_II*mask_field, nb_pixels=int(owa/sampling*1.4)) 
                         fig = plt.figure(figsize=(6,6))
                         plt.imshow(Ii_crop, cmap='hot',vmin=vmin_fig,vmax=vmax_fig)
                         plt.colorbar(fraction=0.046, pad=0.04)

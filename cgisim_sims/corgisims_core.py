@@ -10,6 +10,7 @@ from scipy.interpolate import RegularGridInterpolator
 import astropy.io.fits as pyfits
 import matplotlib.pylab as plt
 import os
+import warnings
 
 from emccd_detect.emccd_detect import EMCCDDetectBase
 
@@ -49,6 +50,7 @@ class corgisims_core():
                       "dm_maps": os.path.join(head, 'data', 'dm_maps')}
 
         # Predefine options
+        # DMs taken from the roman_phasec library or computed by FALCO
         if cor_type=='hlc_band1' and bandpass=='1':
             dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_best_contrast_dm1.fits' )
             dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_best_contrast_dm2.fits' )
@@ -68,9 +70,13 @@ class corgisims_core():
         self.options['dm1_yc_act'] = 23.5
         self.options['dm2_yc_act'] = 23.5
         
+        # Some other predefined parameters
         self.options['no_integrate_pixels'] = False
         self.options['pixel_scale'] = 0.0218
-        
+        self.options['sampling'] = {'1':500/573.8*0.5,
+                                    '2':500/659.4*0.5,
+                                    '3':500/729.3*0.5,
+                                    '4':500/825.5*0.5}
         
         # Define a default source
         self.define_source('a0v',2.0)
@@ -78,9 +84,9 @@ class corgisims_core():
 
     def define_source(self,star_type,vmag):
         """
-        Compute the electric field.
+        Define source of which we'll take images of.
     
-        This is where all images are computed.     
+        A corgisim object will have a source defined; default is set in the __init__.     
 
         Parameters
         ----------
@@ -93,7 +99,7 @@ class corgisims_core():
         self.source = {'star_type': star_type,
                             'vmag':vmag}
 
-    def compute_EF(self,source_name=None,use_fpm=1,zindex=None,zval_m=None,
+    def compute_EF(self,x_offset_mas=0,y_offset_mas=0,use_fpm=1,zindex=None,zval_m=None,
                    dm1_shear_x=0,dm2_shear_x=0,dm1_shear_y=0,dm2_shear_y=0,
                    lyot_shift_x=0,lyot_shift_y=0,
                    cgi_shift_x=0,cgi_shift_y=0,
@@ -105,9 +111,9 @@ class corgisims_core():
 
         Parameters
         ----------
-        mp : ModelParameters
-            Structure containing optical model parameters
-        modvar : ModelVariables
+        use_fpm : float
+            0 or 1, 0: don't use focal plane mask, 1: use focal plane mask
+        zindex : ModelVariables
             Structure containing temporary optical model variables
         isNorm : bool
             If False, return an unnormalized image. If True, return a
@@ -128,6 +134,12 @@ class corgisims_core():
                   'dm1_xc_act': dm1_xc_act,'dm2_xc_act': dm2_xc_act,'dm1_yc_act': dm1_yc_act,'dm2_yc_act': dm2_yc_act,
                   'lyot_x_shift_m':lyot_shift_x,'lyot_y_shift_m':lyot_shift_y,
                   'cgi_x_shift_m':cgi_shift_x,'cgi_y_shift_m':cgi_shift_y}
+        if 'source_x_offset' not in passvalue_proper:
+            params['source_x_offset_mas'] = x_offset_mas
+            params['source_y_offset_mas'] = y_offset_mas
+            # import pdb 
+            # pdb.set_trace()
+
         if zindex is not None:
             params['zindex'] = zindex
             params['zval_m'] = zval_m
@@ -149,14 +161,9 @@ class corgisims_core():
 
     def compute_spectrum(self):
         """
-        Compute the normalization factor.
+        Compute the spectrum over the current bandpass.
     
-        Used to return images in units of contrast.     
-
-        Parameters
-        ----------
-        mp : ModelParameters
-            Structure containing optical model parameters
+        Called by compute_EF if self.source['counts_spectrum'] is not initialized    
     
         Returns
         -------
@@ -200,12 +207,7 @@ class corgisims_core():
         """
         Compute the normalization factor.
     
-        Used to return images in units of contrast.     
-
-        Parameters
-        ----------
-        mp : ModelParameters
-            Structure containing optical model parameters
+        Used to normalize images to units of contrast.     
     
         Returns
         -------
@@ -222,18 +224,19 @@ class corgisims_core():
         
         return normI
 
-    def generate_image(self,use_fpm=1,jitter_sig_x=0,jitter_sig_y=0,zindex=None,zval_m=None,
+    def generate_image(self,x_offset_mas=0,y_offset_mas=0,use_fpm=1,jitter_sig_x=0,jitter_sig_y=0,
+                       zindex=None,zval_m=None,
                        dm1_shear_x=0,dm2_shear_x=0,dm1_shear_y=0,dm2_shear_y=0,
                        lyot_shift_x=0,lyot_shift_y=0,
                        cgi_shift_x=0,cgi_shift_y=0,
                        stellar_diameter=None,
                        passvalue_proper=None,
-                       flag_return_contrast=False,use_emccd=False,exptime=1.0,x_ta_offset=0,y_ta_offset=0,
+                       flag_return_contrast=False,use_emccd=False,exptime=1.0,
                        drift_vector=None):
         """
         Generate image.
     
-        Used to return images in units of contrast.     
+        Used to generate images in units of contrast.     
 
         Parameters
         ----------
@@ -247,7 +250,7 @@ class corgisims_core():
         Isum : numpy ndarray
             2 D image of the intensity of the simulated source
         """
-        EF = self.compute_EF(use_fpm=use_fpm,zindex=zindex,zval_m=zval_m,
+        EF = self.compute_EF(x_offset_mas=x_offset_mas,y_offset_mas=y_offset_mas,use_fpm=use_fpm,zindex=zindex,zval_m=zval_m,
                              dm1_shear_x=dm1_shear_x,dm2_shear_x=dm2_shear_x,dm1_shear_y=dm1_shear_y,dm2_shear_y=dm2_shear_y,
                              lyot_shift_x=lyot_shift_x,lyot_shift_y=lyot_shift_y,
                              cgi_shift_x=cgi_shift_x,cgi_shift_y=cgi_shift_y,
@@ -263,7 +266,7 @@ class corgisims_core():
         sz_im = self.sz_im
         
         # Add jitter if necessary
-        if jitter_sig_x!=0 or jitter_sig_y!=0 or stellar_diameter is not None:
+        if (jitter_sig_x!=0 or jitter_sig_y!=0 or stellar_diameter is not None) and (np.sqrt(x_offset_mas**2+y_offset_mas**2)<10):
             # If one (only one) of the jitter axis is zero, add just a little bit to avoid numerical problems
             if jitter_sig_x!=0 or jitter_sig_y!=0:
                 if jitter_sig_x==0:
@@ -276,7 +279,7 @@ class corgisims_core():
                 try:
                     self.read_in_jitter_deltaEFs()
                 except:
-                    print("Error occured, did you read in the jitter dictionary from the right folder?")
+                    warnings.warn("Did you read in the jitter dictionary from the right folder?")
             
             # Parameters from jitter_dict
             dEF_mat = self.options['jitter_dict']['dEF_mat']
@@ -294,7 +297,7 @@ class corgisims_core():
             d_offset_max = np.max(np.array([np.max(np.abs(y_jitt_offset_mas_arr)),np.max(np.abs(x_jitt_offset_mas_arr))])) #mas
             pix_scale = (d_offset_max*2)/npix
             X,Y = X*pix_scale,Y*pix_scale
-            W_jit = np.exp(-0.5*((X-x_ta_offset)**2/jitter_sig_x**2 + (Y-y_ta_offset)**2/jitter_sig_y**2))
+            W_jit = np.exp(-0.5*((X-x_offset_mas)**2/jitter_sig_y**2 + (Y-y_offset_mas)**2/jitter_sig_x**2))
 
             # Stellar diamter: top hat convolution
             if stellar_diameter is not None:    
@@ -302,14 +305,12 @@ class corgisims_core():
                 top_hat = make_circ_mask(npix,0,0,rad/pix_scale)
                 W_jit = convolve(top_hat,W_jit)
     
-                # import pdb 
-                # pdb.set_trace()
             if drift_vector is not None:
                 im_line_segment = np.zeros((npix, npix))
-                start_vect_x = int(npix/2+x_ta_offset/pix_scale)
-                start_vect_y = int(npix/2+y_ta_offset/pix_scale)
-                fin_vect_x = int(npix/2+x_ta_offset/pix_scale + drift_vector[0]/pix_scale)
-                fin_vect_y = int(npix/2+y_ta_offset/pix_scale + drift_vector[1]/pix_scale)
+                start_vect_x = int(npix/2+x_offset_mas/pix_scale)
+                start_vect_y = int(npix/2+y_offset_mas/pix_scale)
+                fin_vect_x = int(npix/2+x_offset_mas/pix_scale + drift_vector[0]/pix_scale)
+                fin_vect_y = int(npix/2+y_offset_mas/pix_scale + drift_vector[1]/pix_scale)
                 rr, cc, val = line_aa(start_vect_x, start_vect_y, fin_vect_x, fin_vect_y)
                 im_line_segment[rr, cc] = val 
                 W_jit = convolve(im_line_segment,W_jit)
@@ -320,21 +321,11 @@ class corgisims_core():
             
             for II,(x,y,A) in enumerate(zip(x_jitt_offset_mas_arr,y_jitt_offset_mas_arr,A_arr)):
                 WA_jit[II] = interp((x,y)) * A
-            # else:
-            #     for II,(x,y,A) in enumerate(zip(x_jitt_offset_mas_arr,y_jitt_offset_mas_arr,A_arr)):
-            #         WA_jit[II] = np.exp(-0.5*(x**2/jitter_sig_x**2 + y**2/jitter_sig_y**2)) * A
             
             # Normalize W*A function
             WA_jit_norm = np.sum(WA_jit)
 
             # Add jitter
-            # Normalize W*A function
-            # WA_jit_norm = 0
-            # for x,y,A in zip(x_jitt_offset_mas_arr,y_jitt_offset_mas_arr,A_arr):
-            #     WA_jit_norm = WA_jit_norm + np.exp(-0.5*(x**2/jitter_sig_x**2 + y**2/jitter_sig_y**2)) * A
-            # import pdb 
-            # pdb.set_trace()
-
             if WA_jit_norm!=0:
                 if 'counts_spectrum' in self.source:
                     counts_spectrum = self.source['counts_spectrum']
@@ -353,7 +344,7 @@ class corgisims_core():
                     Ii_lam = np.abs(EF + dEF)**2 
                     Ii = np.sum(Ii_lam,axis=0)
                     Ii_sum = Ii_sum + Ii * WA_jit_fun 
-            else: # jitter is very small
+            else: # if jitter is very small
                 Ii = np.abs(EF)**2
                 Ii_sum = np.sum(Ii,axis=0)
         else: # No jitter:
@@ -369,7 +360,7 @@ class corgisims_core():
                 print("If you'd like other parameters use class function define_emccd()")
                 self.define_emccd()
             if flag_return_contrast:
-                print("Ignoring the fact that you requested contrast, will return emccd image")
+                warnings.warn("Ignoring the fact that you requested contrast, will return emccd image")
                 Isum = Isum*normalization
             Isum = self.add_detector_noise(Isum,exptime)
 
@@ -623,7 +614,7 @@ class corgisims_core():
     
     def compute_contrast_curve(self,ni_im,iwa=3,owa=9,d_sep=0.5):
         """
-        Generate image.
+        Compute contrast curve.
     
         Used to return images in units of contrast.     
 
@@ -640,18 +631,18 @@ class corgisims_core():
             2 D image of the intensity of the simulated source with detector noise
         """
 
-        sampling_hlc = {'hlc_band1':{'1':0.435}} #TODO
+        sampling = self.options['sampling'][self.bandpass]
 
         sz_im = np.shape(ni_im)
         sep_arr = np.arange(iwa,owa+0.5,d_sep)
         num_samp = len(sep_arr)
         ni_curve = np.zeros(num_samp)
         for II in range(num_samp):
-            r_ring = sep_arr[II]/(sampling_hlc['hlc_band1']['1'])
+            r_ring = sep_arr[II]/(sampling)
 
             # Mask
-            rin_mask = make_circ_mask(sz_im[0],0,0,r_ring-0.5/sampling_hlc['hlc_band1']['1'])
-            rout_mask = make_circ_mask(sz_im[0],0,0,r_ring+0.5/sampling_hlc['hlc_band1']['1'])
+            rin_mask = make_circ_mask(sz_im[0],0,0,r_ring-0.5/sampling)
+            rout_mask = make_circ_mask(sz_im[0],0,0,r_ring+0.5/sampling)
             mask_ring = rout_mask-rin_mask
             
             ni_avg_ring = np.mean(ni_im[np.where(mask_ring==1)])
