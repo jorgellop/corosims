@@ -1,9 +1,0 @@
-README.md
-setup.py
-cgisim_sims/__init__.py
-cgisim_sims/cgisim_sims.py
-cgisim_sims.egg-info/PKG-INFO
-cgisim_sims.egg-info/SOURCES.txt
-cgisim_sims.egg-info/dependency_links.txt
-cgisim_sims.egg-info/top_level.txt
-tests/test1.py
