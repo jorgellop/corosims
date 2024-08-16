@@ -9,7 +9,7 @@ if __name__ == '__main__':
     # cor_type = 'spc-wide'
     # cor_type = 'spc-wide_band1'
     
-    bandpass='4'
+    bandpass='1'
     
     # Initialize object
     corgi = cgisim_sims.corgisims_core(cor_type = cor_type, bandpass=bandpass)
@@ -20,7 +20,7 @@ if __name__ == '__main__':
                                 x_offset_mas=0,y_offset_mas=0,
                                 use_fpm=1,zindex=None,zval_m=None,
                                 jitter_sig_x=0,jitter_sig_y=0,
-                                passvalue_proper=None,use_emccd=False)
+                                use_emccd=False)
     
     pixel_scale = corgi.options['pixel_scale']
     max_fov = corgi.sz_im* pixel_scale / 2

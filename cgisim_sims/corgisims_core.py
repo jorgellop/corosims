@@ -103,7 +103,7 @@ class corgisims_core():
                    dm1_shear_x=0,dm2_shear_x=0,dm1_shear_y=0,dm2_shear_y=0,
                    lyot_shift_x=0,lyot_shift_y=0,
                    cgi_shift_x=0,cgi_shift_y=0,
-                   passvalue_proper=None):
+                   passvalue_proper={}):
         """
         Compute the electric field.
     
@@ -143,8 +143,9 @@ class corgisims_core():
         if zindex is not None:
             params['zindex'] = zindex
             params['zval_m'] = zval_m
-        if passvalue_proper is not None:
-            params.update(passvalue_proper)
+        
+        # Proper passvalue is treated internally in cgisim
+        params.update(passvalue_proper)
         EF, counts = cgisim.rcgisim( self.cgi_mode, self.cor_type, self.bandpass, self.polaxis, params,
                                     no_integrate_pixels=self.options['no_integrate_pixels']) 
         
@@ -230,7 +231,7 @@ class corgisims_core():
                        lyot_shift_x=0,lyot_shift_y=0,
                        cgi_shift_x=0,cgi_shift_y=0,
                        stellar_diameter=None,
-                       passvalue_proper=None,
+                       passvalue_proper={},
                        flag_return_contrast=False,use_emccd=False,exptime=1.0,
                        drift_vector=None):
         """
