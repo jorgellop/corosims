@@ -6,16 +6,15 @@ import os
 if __name__ == '__main__':
     
     name_speckleSeries = 'example_speckleSeries_ScienceAndRef'
-    obs_obj = cgisim_sims.Observation(name=name_speckleSeries)
+    obs_obj = cgisim_sims.Observation(name=name_speckleSeries, cor_type = 'hlc_band1', bandpass='1')
     
-    #%% Define source and scene
+    #%% Define sources and scenes
     # Science target star
     star_vmag = 2.25
     star_type = 'a0v'
     name_source = 'referenceStar'
     obs_obj.create_source(star_type=star_type,vmag=star_vmag,name=name_source)
     print("You added a source: {}, {}, vmag={}".format(obs_obj.sources[0]['name'],obs_obj.sources[0]['star_type'],obs_obj.sources[0]['vmag']))
-    
     
     # Ref target star
     star_vmag = 5.04
@@ -30,6 +29,7 @@ if __name__ == '__main__':
     obs_obj.create_source(star_type='47UMa',vmag=vmag,name=name_source) # TODO: Planet spectra to be implemented
     print("You added a source: {}, {}, vmag={}".format(obs_obj.sources[0]['name'],obs_obj.sources[0]['star_type'],obs_obj.sources[0]['vmag']))
 
+    # Define scenes: science and reference scenes
     # Create a scene, SCI
     obs_obj.create_scene(name='SCI')
     obs_obj.add_point_source_to_scene(scene_name='SCI',source_name='47UMa')

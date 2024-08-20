@@ -12,9 +12,9 @@ if __name__ == '__main__':
     bandpass='1'
     
     # Initialize object
-    corgi = cgisim_sims.corgisims_core(cor_type = cor_type, bandpass=bandpass)
+    corgi = cgisim_sims.corgisims_core(cor_type=cor_type, bandpass=bandpass)
 
-    corgi.define_source('a0v', 2)
+    corgi.define_source('a0v', 2) # star_type,vmag
     #%% Generate image
     im10 = corgi.generate_image(flag_return_contrast=True,
                                 x_offset_mas=0,y_offset_mas=0,
@@ -22,10 +22,12 @@ if __name__ == '__main__':
                                 jitter_sig_x=0,jitter_sig_y=0,
                                 use_emccd=False)
     
-    pixel_scale = corgi.options['pixel_scale']
-    max_fov = corgi.sz_im* pixel_scale / 2
     
     #%% Plot
+    
+    pixel_scale = corgi.options['pixel_scale']
+    max_fov = corgi.sz_im* pixel_scale / 2
+
     fig = plt.figure(figsize=(6,6))
     plt.imshow(im10, cmap='hot', extent=[max_fov,-max_fov,max_fov,-max_fov])
     plt.colorbar(fraction=0.046, pad=0.04)
@@ -38,4 +40,3 @@ if __name__ == '__main__':
     plt.xlabel('RA [arcsec]', fontsize = 16)
     plt.ylabel('Dec [arcsec]', fontsize = 16)
 
-    # fig.savefig('output/singleImages/images_'+cor_type+'.png')

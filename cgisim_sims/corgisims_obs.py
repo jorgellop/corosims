@@ -39,7 +39,8 @@ class Observation():
         # An Observation has a set of sources, here initialized as zero
         self.sources = []
         self.num_sources = 0
-
+        
+        # Define the instrument with a "core" instance
         self.corgisim = corgisims_core(cor_type=cor_type, bandpass=bandpass)
         
         # If name is not given, just call it OS_{date}
@@ -318,9 +319,8 @@ class Observation():
                                     vmin_fig=None,vmax_fig=None,title_fig='',
                                     use_emccd=False,use_photoncount=False,flag_return_contrast=False,flag_compute_normalization=False):
         """
-        Generate astrophysical scene.
+        Generate speckle series.
     
-        self.scenes will carry a list of dictionaries with all the information about the user-defined scenes.     
 
         Parameters
         ----------

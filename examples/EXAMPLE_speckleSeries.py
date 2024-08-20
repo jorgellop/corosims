@@ -6,7 +6,7 @@ import os
 if __name__ == '__main__':
     
     name_speckleSeries = 'example_speckleSeries'
-    obs_obj = cgisim_sims.Observation(name=name_speckleSeries)
+    obs_obj = cgisim_sims.Observation(name=name_speckleSeries, cor_type = 'hlc_band1', bandpass='1')
     
     #%% Define source and scene
     # Science target star
@@ -44,8 +44,7 @@ if __name__ == '__main__':
     # Batch 0
     obs_obj.create_batch(scene_name='Scene1',jitter_x=jitt_sig_x_arr_0,jitter_y=jitt_sig_y_arr_0)
     
-    # Batch 1, Roll2: PA=0 deg
-    V3PA_roll1 = 0
+    # Batch 1
     obs_obj.create_batch(scene_name='Scene1',jitter_x=jitt_sig_x_arr_1,jitter_y=jitt_sig_y_arr_1)
     
     #%% Generate speckle series for scene

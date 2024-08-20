@@ -369,21 +369,11 @@ class corgisims_core():
 
     def read_in_jitter_deltaEFs(self,datadir_jitt0=None):
         """
-        Generate image.
+        Read teh jitter products needed for simulating jitter.
     
-        Used to return images in units of contrast.     
-
         Parameters
         ----------
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
     
-        Returns
-        -------
-        Isum : numpy ndarray
-            2 D image of the intensity of the simulated source
         """
         print("Reading in the jitter parameters and EFs into a cube")
         
@@ -435,9 +425,9 @@ class corgisims_core():
 
     def compute_jitter_EFs(self,d_ang1=0.15,r1_lim=0.6,outdir0=None):
         """
-        Generate image.
+        Compute the jitter products needed to efficiently simulate jitter.
     
-        Used to return images in units of contrast.     
+        This needs to be done once per mode.     
 
         Parameters
         ----------
