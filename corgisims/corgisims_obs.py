@@ -7,7 +7,7 @@ import matplotlib.pylab as plt
 import astropy.io.fits as pyfits
 import warnings
 
-from cgisim_sims.corgisims_core import corgisims_core
+from corgisims.corgisims_core import corgisims_core
 from utils import make_circ_mask,degenPA,crop_data
 
 class Observation():

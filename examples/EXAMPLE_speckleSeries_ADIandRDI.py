@@ -1,4 +1,4 @@
-import cgisim_sims
+import corgisims
 import matplotlib.pylab as plt
 import numpy as np
 import os
@@ -6,7 +6,7 @@ import os
 if __name__ == '__main__':
     
     name_speckleSeries = 'example_speckleSeries_ScienceAndRef'
-    obs_obj = cgisim_sims.Observation(name=name_speckleSeries, cor_type = 'hlc_band1', bandpass='1')
+    obs_obj = corgisims.Observation(name=name_speckleSeries, cor_type = 'hlc_band1', bandpass='1')
     
     #%% Define sources and scenes
     # Science target star

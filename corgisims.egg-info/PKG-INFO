@@ -1,0 +1,7 @@
+Metadata-Version: 2.1
+Name: corgisims
+Version: 0.1.0
+Summary: A brief description of your library
+Author: Jorge Llop-Sayson
+Author-email: jorge.llop.sayson@jpl.nasa.gov
+Requires-Python: >=3.6

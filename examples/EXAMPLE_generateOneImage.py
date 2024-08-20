@@ -1,4 +1,4 @@
-import cgisim_sims
+import corgisims
 import matplotlib.pylab as plt
 
 if __name__ == '__main__':
@@ -12,7 +12,7 @@ if __name__ == '__main__':
     bandpass='1'
     
     # Initialize object
-    corgi = cgisim_sims.corgisims_core(cor_type=cor_type, bandpass=bandpass)
+    corgi = corgisims.corgisims_core(cor_type=cor_type, bandpass=bandpass)
 
     corgi.define_source('a0v', 2) # star_type,vmag
     #%% Generate image

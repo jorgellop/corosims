@@ -13,10 +13,10 @@ from EXAMPLE_config_Roman_CGI_HLC_NFOV_Band1 import mp
  # Which optical layout to use
 
 if __name__ == '__main__':
-    import cgisim_sims
+    import corgisims
     
     mp.layout = 'cgisim' 
-    mp.cgisim_obj = cgisim_sims.corgisims_core(cor_type = 'hlc_band1', bandpass='1')
+    mp.cgisim_obj = corgisims.corgisims_core(cor_type = 'hlc_band1', bandpass='1')
     
     mp.Nitr = 2
     # %% Define different directories for data output
