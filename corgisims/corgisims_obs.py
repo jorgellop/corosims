@@ -502,7 +502,7 @@ class Observation():
         header.set('JITTY', np.mean(batch['jitter_y']), 'Mean of jitter_y')
         zindex = batch['zindex']
         zval_m = batch['zval_m']
-        if zindex:
+        if zindex is not None:
             for II,zer in enumerate(zindex):
                 zv = np.mean(zval_m[:,II])
                 header['Z{}_AVG'.format(zer)] = zv
