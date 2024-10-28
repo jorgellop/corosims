@@ -1,4 +1,4 @@
-import corgisims
+import corosims
 import matplotlib.pylab as plt
 import numpy as np
 import os
@@ -6,7 +6,7 @@ import os
 if __name__ == '__main__':
     
     name_speckleSeries = 'example_speckleSeries'
-    obs_obj = corgisims.Observation(name=name_speckleSeries, cor_type = 'hlc_band1', bandpass='1')
+    obs_obj = corosims.Observation(name=name_speckleSeries, cor_type = 'hlc_band1', bandpass='1')
     
     #%% Define source and scene
     # Science target star
@@ -57,8 +57,8 @@ if __name__ == '__main__':
     
     batches = obs_obj.batches
     fntsz = 10
-    pixel_scale = obs_obj.corgisim.options['pixel_scale']
-    max_fov = obs_obj.corgisim.sz_im* pixel_scale / 2
+    pixel_scale = obs_obj.corosims.options['pixel_scale']
+    max_fov = obs_obj.corosims.sz_im* pixel_scale / 2
     zoom_pix = 30
     
     # generate figures
