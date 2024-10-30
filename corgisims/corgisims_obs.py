@@ -164,7 +164,7 @@ class Observation():
         self.scenes[scene_index_id]["sources_in_scene"].append(source_in_scene)
         self.scenes[scene_index_id]["num_sources_in_scene"] = self.scenes[scene_index_id]["num_sources_in_scene"] + 1
 
-    def create_batch(self,batch_id=None,scene_index_id=None,scene_name=None,jitter_x=0,jitter_y=0,num_timesteps=None,zindex=None,zval_m=None,
+    def create_batch(self,batch_id=None,scene_index_id=None,scene_name=None,jitter_x=[0],jitter_y=[0],num_timesteps=None,zindex=None,zval_m=None,
                        dm1_shear_x=None,dm2_shear_x=None,dm1_shear_y=None,dm2_shear_y=None,
                        lyot_shift_x=None,lyot_shift_y=None,
                        cgi_shift_x=None,cgi_shift_y=None,
@@ -566,6 +566,9 @@ class Observation():
         # Load pre-computed image cubes for scene
         # =============================================================================
         datadir = self.paths['outdir']
+        if len(self.batches)==0:
+            warnings.warn("No batches!")
+
         for II,batch in enumerate(self.batches):
             flnm = os.path.join(datadir,'Ii_cube_batch{}.fits'.format(batch["batch_id"]))
             data = pyfits.open(flnm)
@@ -588,7 +591,7 @@ class Observation():
                 im_cube = data[0].data
                 batch['im_coadded_emccd'] = im_cube
 
-            self.batches[batch["batch_id"]] = batch
+            self.batches[II] = batch
             
             
     def add_detector_noise_to_batches(self,label_out=''):
