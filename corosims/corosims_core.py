@@ -16,7 +16,7 @@ from emccd_detect.emccd_detect import EMCCDDetectBase
 
 from utils import make_circ_mask#,crop_data,degenPA
 
-class corgisims_core():
+class corosims_core():
     """
     Core simulator of Roman Coronagraph images. A wrapper over cgisim, by John Krist.
 
@@ -86,7 +86,7 @@ class corgisims_core():
         """
         Define source of which we'll take images of.
     
-        A corgisim object will have a source defined; default is set in the __init__.     
+        A corosims object will have a source defined; default is set in the __init__.     
 
         Parameters
         ----------

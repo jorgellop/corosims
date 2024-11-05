@@ -1,4 +1,4 @@
-import corgisims
+import corosims
 import matplotlib.pylab as plt
 import numpy as np
 
@@ -13,9 +13,9 @@ if __name__ == '__main__':
     bandpass='1'
     
     # Initialize object
-    corgi = corgisims.corgisims_core(cor_type = cor_type, bandpass=bandpass)
+    corosims = corosims.corosims_core(cor_type = cor_type, bandpass=bandpass)
 
-    corgi.define_source('a0v', 2)
+    corosims.define_source('a0v', 2)
     #%% Define Drift and TA errors
     ta_offset_r = 0 # mas
     ta_offset_pa = 0 # deg
@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
     
     #%% Generate image
-    im10 = corgi.generate_image(flag_return_contrast=True,
+    im10 = corosims.generate_image(flag_return_contrast=True,
                                 jitter_sig_x=3,jitter_sig_y=3,
                                 x_offset_mas=ta_offset_x,
                                 y_offset_mas=ta_offset_y,

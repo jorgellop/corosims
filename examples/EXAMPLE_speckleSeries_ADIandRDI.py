@@ -1,4 +1,4 @@
-import corgisims
+import corosims
 import matplotlib.pylab as plt
 import numpy as np
 import os
@@ -6,7 +6,7 @@ import os
 if __name__ == '__main__':
     
     name_speckleSeries = 'example_speckleSeries_ScienceAndRef'
-    obs_obj = corgisims.Observation(name=name_speckleSeries, cor_type = 'hlc_band1', bandpass='1')
+    obs_obj = corosims.Observation(name=name_speckleSeries, cor_type = 'hlc_band1', bandpass='1')
     
     #%% Define sources and scenes
     # Science target star
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     
     #%% Add detector noise
     # Define detector
-    obs_obj.corgisim.define_emccd(em_gain=5000.0)
+    obs_obj.corosims.define_emccd(em_gain=5000.0)
     
     num_frames_interp_batch0 = 1000
     obs_obj.batches[0]['num_frames_interp'] =  num_frames_interp_batch0
@@ -98,8 +98,8 @@ if __name__ == '__main__':
     
     batches = obs_obj.batches
     fntsz = 10
-    pixel_scale = obs_obj.corgisim.options['pixel_scale']
-    max_fov = obs_obj.corgisim.sz_im* pixel_scale / 2
+    pixel_scale = obs_obj.corosims.options['pixel_scale']
+    max_fov = obs_obj.corosims.sz_im* pixel_scale / 2
     zoom_pix = 30
     fig_ni, ax_ni = plt.subplots(1,1,figsize=(6, 6)) # For contrast curve
     for II,batch in enumerate(batches):
@@ -160,7 +160,7 @@ if __name__ == '__main__':
         
         # Contrast Curve
         ni_im = batch['im_coadded']/ batch['maxI0_offaxis']
-        sep_arr,ni_curve = obs_obj.corgisim.compute_contrast_curve(ni_im,iwa=3,owa=9,d_sep=0.5)
+        sep_arr,ni_curve = obs_obj.corosims.compute_contrast_curve(ni_im,iwa=3,owa=9,d_sep=0.5)
         
         # Plot
         ax_ni.plot(sep_arr,ni_curve, label='Batch {}'.format(batch['batch_id']))

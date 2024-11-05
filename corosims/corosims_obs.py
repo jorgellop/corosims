@@ -7,7 +7,7 @@ import matplotlib.pylab as plt
 import astropy.io.fits as pyfits
 import warnings
 
-from corgisims.corgisims_core import corgisims_core
+from corosims.corosims_core import corosims_core
 from utils import make_circ_mask,degenPA,crop_data
 
 class Observation():
@@ -41,7 +41,7 @@ class Observation():
         self.num_sources = 0
         
         # Define the instrument with a "core" instance
-        self.corgisim = corgisims_core(cor_type=cor_type, bandpass=bandpass)
+        self.corosims = corosims_core(cor_type=cor_type, bandpass=bandpass)
         
         # If name is not given, just call it OS_{date}
         if name is None:
@@ -349,10 +349,10 @@ class Observation():
             batch_list = [b for b in self.batches if any(batch_match==b['batch_id'] for batch_match in batch_id_list)]
 
         
-        sz_im = self.corgisim.sz_im
+        sz_im = self.corosims.sz_im
         
         # Generate mask
-        sampling = self.corgisim.options['sampling'][self.corgisim.bandpass]
+        sampling = self.corosims.options['sampling'][self.corosims.bandpass]
         iwa = 3
         owa = 9
         iwa_mask = make_circ_mask(sz_im,0,0,iwa/sampling)
@@ -401,13 +401,13 @@ class Observation():
                 # import pdb 
                 # pdb.set_trace()
 
-                # # Define source in the corgisim_core object, #TODO: i don't know if I like this way of doing it...
-                # self.corgisim.compute_spectrum(source_offaxis_dict["star_type"],source_offaxis_dict["vmag"])
-                # Define source in the corgisim_core object, #TODO: i don't know if I like this way of doing it...
-                self.corgisim.source = source_offaxis
+                # # Define source in the corosims_core object, #TODO: i don't know if I like this way of doing it...
+                # self.corosims.compute_spectrum(source_offaxis_dict["star_type"],source_offaxis_dict["vmag"])
+                # Define source in the corosims_core object, #TODO: i don't know if I like this way of doing it...
+                self.corosims.source = source_offaxis
 
                 # Generate image
-                Ii_offaxis = Ii_offaxis + self.corgisim.generate_image(use_fpm=1,
+                Ii_offaxis = Ii_offaxis + self.corosims.generate_image(use_fpm=1,
                                                                         jitter_sig_x=0,jitter_sig_y=0, # we assume no jitter for an off-axis source
                                                                         passvalue_proper=passvalue_proper,
                                                                         use_emccd=False,flag_return_contrast=False)
@@ -424,8 +424,8 @@ class Observation():
                 passvalue_proper = {'source_x_offset_mas':xoffset, 
                                     'source_y_offset_mas':yoffset} 
                 
-                # Define source in the corgisim_core object, #TODO: i don't know if I like this way of doing it...
-                self.corgisim.source = source_onaxis
+                # Define source in the corosims_core object, #TODO: i don't know if I like this way of doing it...
+                self.corosims.source = source_onaxis
 
                 # Compute the off-axis normalization to put it on the header
                 if flag_return_contrast or flag_compute_normalization:
@@ -433,14 +433,14 @@ class Observation():
                         print("More than one source is on-axis and you asked for contrast, how do we normalize?")
                         print("We'll assume that we normalize with the first on-axis source")
                     if KK==0:
-                        maxI0_offaxis = self.corgisim.compute_offaxis_normalization()
+                        maxI0_offaxis = self.corosims.compute_offaxis_normalization()
                         
                 Ii_onaxis_onesource = np.zeros((num_timesteps,sz_im,sz_im))
                 for II in range(num_timesteps):
                     print("Computing image num. {} out of {}".format(II+1,num_timesteps))
 
                     # Generate image
-                    Ii_onaxis_II = self.corgisim.generate_image(use_fpm=1,
+                    Ii_onaxis_II = self.corosims.generate_image(use_fpm=1,
                                                             jitter_sig_x=jitter_x[II],jitter_sig_y=jitter_y[II],
                                                             zindex=zindex,zval_m=zval_m[II],
                                                             dm1_shear_x=dm1_shear_x[II],dm2_shear_x=dm2_shear_x[II],
@@ -624,7 +624,7 @@ class Observation():
             # Add detector noise to this new interpolated cube
             im_cube_interp_emccd = []
             for JJ in range(num_frames_interp):
-                im_cube_interp_emccd.append(self.corgisim.add_detector_noise(im_cube_interp[JJ],exptime))
+                im_cube_interp_emccd.append(self.corosims.add_detector_noise(im_cube_interp[JJ],exptime))
                 
             # Save FITS files
             hdulist = pyfits.PrimaryHDU(im_cube_interp_emccd)
