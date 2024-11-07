@@ -26,7 +26,7 @@ if __name__ == '__main__':
     # Planet
     vmag = 5.04+8*2.5
     name_source = 'planet'
-    obs_obj.create_source(star_type='47UMa',vmag=vmag,name=name_source) # TODO: Planet spectra to be implemented
+    obs_obj.create_source(star_type='a0v',vmag=vmag,name=name_source) # TODO: Planet spectra to be implemented
     print("You added a source: {}, {}, vmag={}".format(obs_obj.sources[0]['name'],obs_obj.sources[0]['star_type'],obs_obj.sources[0]['vmag']))
 
     # Define scenes: science and reference scenes

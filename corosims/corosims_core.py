@@ -1,16 +1,16 @@
 """Optical Propagations."""
 
-import roman_phasec_proper
+import roman_preflight_proper
 import proper
 import cgisim
 import numpy as np
 from scipy.ndimage import convolve
-from skimage.draw import line_aa
 from scipy.interpolate import RegularGridInterpolator
 import astropy.io.fits as pyfits
 import matplotlib.pylab as plt
 import os
 import warnings
+import importlib
 
 from emccd_detect.emccd_detect import EMCCDDetectBase
 
@@ -52,11 +52,11 @@ class corosims_core():
         # Predefine options
         # DMs taken from the roman_phasec library or computed by FALCO
         if cor_type=='hlc_band1' and bandpass=='1':
-            dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_best_contrast_dm1.fits' )
-            dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/hlc_best_contrast_dm2.fits' )
+            dm1 = proper.prop_fits_read( roman_preflight_proper.lib_dir+'/examples/hlc_ni_2e-9_dm1_v.fits' )
+            dm2 = proper.prop_fits_read( roman_preflight_proper.lib_dir+'/examples/hlc_ni_2e-9_dm2_v.fits' )
         elif cor_type=='spc-wide' and bandpass=='4':
-            dm1 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/spc_wide_band4_best_contrast_dm1.fits' )
-            dm2 = proper.prop_fits_read( roman_phasec_proper.lib_dir+'/examples/spc_wide_band4_best_contrast_dm2.fits' )
+            dm1 = proper.prop_fits_read( roman_preflight_proper.lib_dir+'/examples/spc-wide_ni_3e-9_dm1_v.fits' )
+            dm2 = proper.prop_fits_read( roman_preflight_proper.lib_dir+'/examples/spc-wide_ni_3e-9_dm2_v.fits' )
         elif cor_type=='hlc_band4' and bandpass=='4':
             dm1 = proper.prop_fits_read( os.path.join(self.paths["dm_maps"],'HLC4_Band4_falco_S8T3_NI6.5e-09_dm1.fits' ))
             dm2 = proper.prop_fits_read( os.path.join(self.paths["dm_maps"],'HLC4_Band4_falco_S8T3_NI6.5e-09_dm2.fits' ))
@@ -66,7 +66,7 @@ class corosims_core():
         self.options['dm1'] = dm1
         self.options['dm2'] = dm2
         self.options['dm1_xc_act'] = 23.5
-        self.options['dm2_xc_act'] = 23.5
+        self.options['dm2_xc_act'] = 23.5 - 0.1
         self.options['dm1_yc_act'] = 23.5
         self.options['dm2_yc_act'] = 23.5
         
@@ -130,8 +130,8 @@ class corosims_core():
         dm2_xc_act = self.options['dm2_xc_act'] + dm2_shear_x/0.9906e-3
         dm1_yc_act = self.options['dm1_yc_act'] + dm1_shear_y/0.9906e-3
         dm2_yc_act = self.options['dm2_yc_act'] + dm2_shear_y/0.9906e-3
-        params = {'use_errors':1, 'use_dm1':1, 'dm1_m':dm1, 'use_dm2':1, 'dm2_m':dm2, 'use_fpm':use_fpm, 
-                  'dm1_xc_act': dm1_xc_act,'dm2_xc_act': dm2_xc_act,'dm1_yc_act': dm1_yc_act,'dm2_yc_act': dm2_yc_act,
+        params = {'use_errors':1, 'use_dm1':1, 'dm1_v':dm1, 'use_dm2':1, 'dm2_v':dm2, 'use_fpm':use_fpm, 
+                   'dm1_xc_act': dm1_xc_act,'dm2_xc_act': dm2_xc_act,'dm1_yc_act': dm1_yc_act,'dm2_yc_act': dm2_yc_act,
                   'lyot_x_shift_m':lyot_shift_x,'lyot_y_shift_m':lyot_shift_y,
                   'cgi_x_shift_m':cgi_shift_x,'cgi_y_shift_m':cgi_shift_y}
         if 'source_x_offset' not in passvalue_proper:
@@ -307,6 +307,8 @@ class corosims_core():
                 W_jit = convolve(top_hat,W_jit)
     
             if drift_vector is not None:
+                # Import the tool to draw a line:
+                line_aa = importlib.import_module('skimage.draw').line_aa
                 im_line_segment = np.zeros((npix, npix))
                 start_vect_x = int(npix/2+x_offset_mas/pix_scale)
                 start_vect_y = int(npix/2+y_offset_mas/pix_scale)
@@ -527,7 +529,7 @@ class corosims_core():
         
         
         print( "Computing on-axis PSF - No T/T error" )
-        params = {'use_errors':1, 'use_dm1':1, 'dm1_m':dm1, 'use_dm2':1, 'dm2_m':dm2}
+        params = {'use_errors':1, 'use_dm1':1, 'dm1_v':dm1, 'use_dm2':1, 'dm2_v':dm2}
         EF0, counts = cgisim.rcgisim( cgi_mode, cor_type, bandpass, polaxis, params,
                                     output_file = os.path.join(outdir,'fields','EF0')) 
         
@@ -536,7 +538,7 @@ class corosims_core():
         source_y_offset_mas_arr = y_arr
         for II,(source_x_offset_mas,source_y_offset_mas) in enumerate(zip(source_x_offset_mas_arr,source_y_offset_mas_arr)):
             print('Propagating jitter realization {0}/{1}.'.format(II+1,len(x_arr)))
-            params = {'use_errors':1, 'use_dm1':1, 'dm1_m':dm1, 'use_dm2':1, 'dm2_m':dm2, 
+            params = {'use_errors':1, 'use_dm1':1, 'dm1_v':dm1, 'use_dm2':1, 'dm2_v':dm2, 
                       'source_x_offset_mas':source_x_offset_mas, 'source_y_offset_mas':source_y_offset_mas} 
             EF, counts = cgisim.rcgisim( cgi_mode, cor_type, bandpass, polaxis, params,
                                         output_file = os.path.join(outdir,'fields','EF{}'.format(II+1)))
