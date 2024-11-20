@@ -137,8 +137,6 @@ class corosims_core():
         if 'source_x_offset' not in passvalue_proper:
             params['source_x_offset_mas'] = x_offset_mas
             params['source_y_offset_mas'] = y_offset_mas
-            # import pdb 
-            # pdb.set_trace()
 
         if zindex is not None:
             params['zindex'] = zindex
@@ -148,9 +146,11 @@ class corosims_core():
         params.update(passvalue_proper)
         EF, counts = cgisim.rcgisim( self.cgi_mode, self.cor_type, self.bandpass, self.polaxis, params,
                                     no_integrate_pixels=self.options['no_integrate_pixels']) 
-        
+        # import pdb 
+        # pdb.set_trace()
+
         # Source's spectrum
-        if ~('counts_spectrum' in self.source):
+        if not ('counts_spectrum' in self.source):
             self.compute_spectrum()
         counts_spectrum = self.source['counts_spectrum']
         EF_new = []
