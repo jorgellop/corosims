@@ -14,7 +14,8 @@ if __name__ == '__main__':
     # Initialize object
     corgi = corosims.corosims_core(cor_type=cor_type, bandpass=bandpass)
 
-    corgi.define_source('a0v', 2) # star_type,vmag
+    corgi.define_source('a0v', 2, # star_type,vmag
+                        stellar_diam=2) #mas
     #%% Generate image
     im10 = corgi.generate_image(flag_return_contrast=True,
                                 x_offset_mas=0,y_offset_mas=0,

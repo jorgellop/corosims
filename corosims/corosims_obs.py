@@ -54,7 +54,7 @@ class Observation():
         # if not os.path.exists(self.paths['outdir']):
         #     os.makedirs(self.paths['outdir'])
 
-    def create_source(self,name=None,vmag=None,star_type='a0v',spectrum=None):
+    def create_source(self,name=None,vmag=None,star_type='a0v',spectrum=None,stellar_diam=None):
         """
         Create oint source.
     
@@ -73,7 +73,8 @@ class Observation():
                 'name':name,
                 'star_type': star_type, # TODO: planet spectrum
                 'vmag':vmag,
-                'spectrum':spectrum}
+                'spectrum':spectrum,
+                'stellar_diam':stellar_diam}
         
         # append source dictionary to the sources list and update number of sources
         self.sources.append(source)

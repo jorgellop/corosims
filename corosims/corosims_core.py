@@ -82,7 +82,7 @@ class corosims_core():
         self.define_source('a0v',2.0)
         
 
-    def define_source(self,star_type,vmag):
+    def define_source(self,star_type,vmag,stellar_diam=None):
         """
         Define source of which we'll take images of.
     
@@ -97,7 +97,8 @@ class corosims_core():
     
         """
         self.source = {'star_type': star_type,
-                            'vmag':vmag}
+                            'vmag':vmag,
+                            'stellar_diam':stellar_diam}
 
     def compute_EF(self,x_offset_mas=0,y_offset_mas=0,use_fpm=1,zindex=None,zval_m=None,
                    dm1_shear_x=0,dm2_shear_x=0,dm1_shear_y=0,dm2_shear_y=0,
@@ -230,7 +231,6 @@ class corosims_core():
                        dm1_shear_x=0,dm2_shear_x=0,dm1_shear_y=0,dm2_shear_y=0,
                        lyot_shift_x=0,lyot_shift_y=0,
                        cgi_shift_x=0,cgi_shift_y=0,
-                       stellar_diameter=None,
                        passvalue_proper={},
                        flag_return_contrast=False,use_emccd=False,exptime=1.0,
                        drift_vector=None):
@@ -265,6 +265,8 @@ class corosims_core():
         else:
             normalization = 1
         sz_im = self.sz_im
+        
+        stellar_diameter = self.source["stellar_diam"]
         
         # Add jitter if necessary
         if (jitter_sig_x!=0 or jitter_sig_y!=0 or stellar_diameter is not None) and (np.sqrt(x_offset_mas**2+y_offset_mas**2)<10):
