@@ -527,23 +527,43 @@ class corosims_core():
                 
         dm1 = self.options['dm1'] 
         dm2 = self.options['dm2'] 
+        dm1_xc_act = self.options['dm1_xc_act'] 
+        dm2_xc_act = self.options['dm2_xc_act'] 
+        dm1_yc_act = self.options['dm1_yc_act'] 
+        dm2_yc_act = self.options['dm2_yc_act'] 
 
         
         
         print( "Computing on-axis PSF - No T/T error" )
-        params = {'use_errors':1, 'use_dm1':1, 'dm1_v':dm1, 'use_dm2':1, 'dm2_v':dm2}
+        params = {'use_errors':1, 'use_dm1':1, 'dm1_v':dm1, 'use_dm2':1, 'dm2_v':dm2,
+                  'dm1_xc_act': dm1_xc_act,'dm2_xc_act': dm2_xc_act,'dm1_yc_act': dm1_yc_act,'dm2_yc_act': dm2_yc_act}
+
         EF0, counts = cgisim.rcgisim( cgi_mode, cor_type, bandpass, polaxis, params,
                                     output_file = os.path.join(outdir,'fields','EF0')) 
-        
+        Ii = np.abs(EF0)**2
+        Ii_sum = np.sum(Ii,axis=0)
+        hdulist = pyfits.PrimaryHDU(Ii_sum)
+        hdulist.writeto(os.path.join(outdir,'fields','Ii0.fits'),overwrite=True)
+        # import pdb 
+        # pdb.set_trace()
+
         # Loop for all cloud positions and populate cube
         source_x_offset_mas_arr = x_arr
         source_y_offset_mas_arr = y_arr
         for II,(source_x_offset_mas,source_y_offset_mas) in enumerate(zip(source_x_offset_mas_arr,source_y_offset_mas_arr)):
             print('Propagating jitter realization {0}/{1}.'.format(II+1,len(x_arr)))
             params = {'use_errors':1, 'use_dm1':1, 'dm1_v':dm1, 'use_dm2':1, 'dm2_v':dm2, 
-                      'source_x_offset_mas':source_x_offset_mas, 'source_y_offset_mas':source_y_offset_mas} 
+                      'source_x_offset_mas':source_x_offset_mas, 'source_y_offset_mas':source_y_offset_mas,
+                      'dm1_xc_act': dm1_xc_act,'dm2_xc_act': dm2_xc_act,'dm1_yc_act': dm1_yc_act,'dm2_yc_act': dm2_yc_act}
+ 
+
             EF, counts = cgisim.rcgisim( cgi_mode, cor_type, bandpass, polaxis, params,
                                         output_file = os.path.join(outdir,'fields','EF{}'.format(II+1)))
+            Ii = np.abs(EF)**2
+            Ii_sum = np.sum(Ii,axis=0)
+            hdulist = pyfits.PrimaryHDU(Ii_sum)
+            hdulist.writeto(os.path.join(outdir,'fields','Ii{}.fits'.format(II+1)),overwrite=True)
+
         hdulist = pyfits.PrimaryHDU(np.array([source_x_offset_mas_arr,source_y_offset_mas_arr]))
         hdulist.writeto(os.path.join(outdir,'fields','offsets_mas.fits'),overwrite=True)
         
