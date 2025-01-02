@@ -133,7 +133,8 @@ class corosims_core():
         dm2_yc_act = self.options['dm2_yc_act'] + dm2_shear_y/0.9906e-3
         params = {'use_errors':1, 'use_dm1':1, 'dm1_v':dm1, 'use_dm2':1, 'dm2_v':dm2, 'use_fpm':use_fpm, 
                    'dm1_xc_act': dm1_xc_act,'dm2_xc_act': dm2_xc_act,'dm1_yc_act': dm1_yc_act,'dm2_yc_act': dm2_yc_act,
-                  'lyot_x_shift_m':lyot_shift_x,'lyot_y_shift_m':lyot_shift_y,
+                  'lyot_x_shift_m':0,#lyot_shift_x, #TODO
+                  'lyot_y_shift_m':0,#lyot_shift_y, #TODO
                   'cgi_x_shift_m':cgi_shift_x,'cgi_y_shift_m':cgi_shift_y}
         if 'source_x_offset' not in passvalue_proper:
             params['source_x_offset_mas'] = x_offset_mas

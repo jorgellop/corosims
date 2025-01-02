@@ -14,6 +14,7 @@ def cart2pol(x, y):
 
 def make_circ_mask(npix,dx,dy,rad):
     X,Y = np.meshgrid(np.arange(-npix/2,npix/2),np.arange(-npix/2,npix/2)); 
+    # X,Y = np.meshgrid(np.linspace(-npix/2,npix/2),np.arange(-npix/2,npix/2)); 
     RHO,THETA = cart2pol(X-dx, Y-dy)
     mask = np.zeros((npix, npix))
     mask[RHO<rad]=1
