@@ -304,14 +304,14 @@ class corosims_core():
             W_jit = np.exp(-0.5*((X-x_offset_mas)**2/jitter_sig_y**2 + (Y-y_offset_mas)**2/jitter_sig_x**2))
 
             # Stellar diamter: top hat convolution
-            if stellar_diameter is not None:    
+            if stellar_diameter is not None or stellar_diameter!=0:    
                 rad = stellar_diameter/2
                 top_hat = make_circ_mask(npix,0,0,rad/pix_scale)
                 if jitter_sig_x==0 and jitter_sig_y==0:
                     W_jit = top_hat
                 else:
                     W_jit = convolve(top_hat,W_jit)
-    
+
             if drift_vector is not None:
                 # Import the tool to draw a line:
                 line_aa = importlib.import_module('skimage.draw').line_aa
@@ -333,8 +333,6 @@ class corosims_core():
             
             # Normalize W*A function
             WA_jit_norm = np.sum(WA_jit)
-            # import pdb 
-            # pdb.set_trace()
 
             # Add jitter
             if WA_jit_norm!=0:
