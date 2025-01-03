@@ -304,7 +304,7 @@ class corosims_core():
             W_jit = np.exp(-0.5*((X-x_offset_mas)**2/jitter_sig_y**2 + (Y-y_offset_mas)**2/jitter_sig_x**2))
 
             # Stellar diamter: top hat convolution
-            if stellar_diameter is not None or stellar_diameter!=0:    
+            if stellar_diameter is not None and stellar_diameter!=0:    
                 rad = stellar_diameter/2
                 top_hat = make_circ_mask(npix,0,0,rad/pix_scale)
                 if jitter_sig_x==0 and jitter_sig_y==0:
