@@ -307,7 +307,10 @@ class corosims_core():
             if stellar_diameter is not None:    
                 rad = stellar_diameter/2
                 top_hat = make_circ_mask(npix,0,0,rad/pix_scale)
-                W_jit = convolve(top_hat,W_jit)
+                if jitter_sig_x==0 and jitter_sig_y==0:
+                    W_jit = top_hat
+                else:
+                    W_jit = convolve(top_hat,W_jit)
     
             if drift_vector is not None:
                 # Import the tool to draw a line:
@@ -330,6 +333,8 @@ class corosims_core():
             
             # Normalize W*A function
             WA_jit_norm = np.sum(WA_jit)
+            # import pdb 
+            # pdb.set_trace()
 
             # Add jitter
             if WA_jit_norm!=0:
@@ -357,8 +362,6 @@ class corosims_core():
             Ii = np.abs(EF)**2
             Ii_sum = np.sum(Ii,axis=0)
         Isum = Ii_sum/normalization
-        # import pdb 
-        # pdb.set_trace()
 
         if use_emccd:
             if not hasattr(self, "emccd"):
