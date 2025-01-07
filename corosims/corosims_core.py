@@ -268,7 +268,9 @@ class corosims_core():
         sz_im = self.sz_im
         
         stellar_diameter = self.source["stellar_diam"]
-        
+        if stellar_diameter==0:
+            stellar_diameter=None
+            
         # Add jitter if necessary
         if (jitter_sig_x!=0 or jitter_sig_y!=0 or stellar_diameter is not None) and (np.sqrt(x_offset_mas**2+y_offset_mas**2)<10):
             # If one (only one) of the jitter axis is zero, add just a little bit to avoid numerical problems
@@ -304,13 +306,15 @@ class corosims_core():
             W_jit = np.exp(-0.5*((X-x_offset_mas)**2/jitter_sig_y**2 + (Y-y_offset_mas)**2/jitter_sig_x**2))
 
             # Stellar diamter: top hat convolution
-            if stellar_diameter is not None and stellar_diameter!=0:    
+            if stellar_diameter is not None:    
                 rad = stellar_diameter/2
                 top_hat = make_circ_mask(npix,0,0,rad/pix_scale)
                 if jitter_sig_x==0 and jitter_sig_y==0:
                     W_jit = top_hat
                 else:
                     W_jit = convolve(top_hat,W_jit)
+            # import pdb 
+            # pdb.set_trace()
 
             if drift_vector is not None:
                 # Import the tool to draw a line:
