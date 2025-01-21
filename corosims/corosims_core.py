@@ -303,7 +303,8 @@ class corosims_core():
             d_offset_max = np.max(np.array([np.max(np.abs(y_jitt_offset_mas_arr)),np.max(np.abs(x_jitt_offset_mas_arr))])) #mas
             pix_scale = (d_offset_max*2)/npix
             X,Y = X*pix_scale,Y*pix_scale
-            W_jit = np.exp(-0.5*((X-x_offset_mas)**2/jitter_sig_y**2 + (Y-y_offset_mas)**2/jitter_sig_x**2))
+            if jitter_sig_x!=0 or jitter_sig_y!=0:
+                W_jit = np.exp(-0.5*((X-x_offset_mas)**2/jitter_sig_y**2 + (Y-y_offset_mas)**2/jitter_sig_x**2))
 
             # Stellar diamter: top hat convolution
             if stellar_diameter is not None:    

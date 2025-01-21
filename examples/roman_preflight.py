@@ -46,7 +46,26 @@
 #                     changed order of SPAM beam and SPC mask shifts
 # Version 1.4, Sept 2022, A.J. Riggs: added option to use Zernike WFS; J. Krist: adjusted orientation of rotated SPC;
 #                   fixed orientation of CVS stop
-#
+# Version 1.5, March 2023: D. Marx: added excam_despace_m optional parameter; updated properties, including error maps,
+#                   for defocus and pupil imaging lenses:
+#                   corrected values for radius of curvatures calculated from measured Fringes for plano surfaces for the 
+#                   defocus lenses and PIL. Was: calculated using 10mm clear aperture; Now: calculated using 8mm clear aperture
+#                   Defocus 1 r2: was -146.3, now -93.62
+#                   Defocus 2 r2: was -153.7, now -98.35
+#                   Defocus 3 r1: was 0.085371, now 0.085518
+#                             r2: was -154.9, now -99.12
+#                   Defocus 4 r2: was -110.0, now -70.41
+#                   PIL R1_b: was 858.2, now 190.0 ('was' value was also based on wrong FR value)
+# Version 2.0, May 2023: J. Krist: renamed from roman_phasec to roman_preflight; now use cgi_dm for flight DM model, with 
+#           DM voltages rather than strokes as inputs; removed use_lens_errors option (now just uses value of use_errors); 
+#           added CFAM baffle (only propagate to there if use_aperture = 1); now rotate images to CGI image orientation; source and FSM 
+#           positional offsets modified to match CGI image orientations; source and fsm positional offsets modified to match
+#           new output orientation;FOCM changed to FCM, including offsets; added other miscellaneous baffles, used only when
+#           use_aperture = 1; changed axis of DM tilts; baseline SPCs (spc-spec, spec-wide; not contributed modes) can now use smaller 
+#           pupil grids (500 pix across pupil); added "small_spc_grid" option to compute baseline SPCs at half default pupil resolution
+#           (500 rather than 1000 pix across pupil) resolution. Changed axis of DM tilt. DM2 is offset from DM1 by 0.1 actuator in X. 
+
+
 # Experience has shown that with the Intel math libraries the program
 # can hang if run in a multithreaded condition with more than one 
 # thread allocated, so set to 1. This must be done before importing numpy
@@ -58,9 +77,8 @@ import numpy as np
 import proper
 from scipy.interpolate import interp1d
 import astropy.io.fits as pyfits
-from roman_phasec_proper import trim, mft2, ffts, polmap, shift_image, transform_image 
-import roman_phasec_proper
-
+from roman_preflight_proper import trim, mft2, ffts, polmap, shift_image, transform_image 
+import roman_preflight_proper as rp
 
 # Written by John Krist
 
@@ -129,23 +147,17 @@ def to_from_doublet( wavefront, dz_to_lens, dz_from_lens, r1_a, r2_a, thickness_
     return
 
 ###############################################################################33
-def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
+def roman_preflight( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
 
     # "output_dim" is used to specify the output dimension in pixels at the final image plane.
     # Computational grid sizes are hardcoded for each coronagraph.
-    
-    data_dir = roman_phasec_proper.data_dir
-    if 'PASSVALUE' in locals():
-        if 'data_dir' in PASSVALUE: data_dir = PASSVALUE['data_dir']
-
-    map_dir = data_dir + roman_phasec_proper.map_dir
-    polfile = data_dir + roman_phasec_proper.polfile
 
     use_cvs = 0                 # use CVS instead of telescope? (1=yes, 0=no)
     cvs_stop_x_shift_m = 0      # shift of CVS entrance pupil mask in meters
     cvs_stop_y_shift_m = 0
     cvs_stop_z_shift_m = 0      # shift of CVS entrance pupil mask along optical axis (+ is downstream)
     cvs_stop_rotation_deg = 0   # rotation of CVS entrance pupil mask in degrees
+    small_spc_grid = 0          # set to 1 to use 500 pix across pupil, else 1000 (baseline SPCs only)
     pupil_array = 0             # 2D array containing pupil pattern (overrides default)
     pupil_mask_array = 0        # 2D array containing SPC pupil mask pattern (overrides default)
     fpm_array = 0               # 2D array containing FPM mask pattern (overrides default)
@@ -186,25 +198,25 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
     fsm_y_offset_mas = 0         
     fsm_x_offset = 0            # offset in focal plane caused by tilt of FSM in lambda0/D
     fsm_y_offset = 0            
-    focm_z_shift_m = 0          # offset (meters) of focus correction mirror (+ increases path length)
-    use_hlc_dm_patterns = 0     # use Dwight's HLC default DM wavefront patterns? 1 or 0
+    fcm_z_shift_m = 0          # offset (meters) of focus correction mirror (+ increases path length)
     use_dm1 = 0                 # use DM1? 1 or 0
     use_dm2 = 0                 # use DM2? 1 or 0
+    dm_version = rp.dm_version  # string, DM version
+    dm_v_quant = 110.0 / 2.**16 # DM DAC voltage quantization resolution 
     dm_sampling_m = 0.9906e-3   # actuator spacing in meters
-    dm1_m = np.zeros((48,48))
+    dm_temp_c = 26.0
+    dm1_v = np.zeros((48,48))
     dm1_xc_act = 23.5           # for 48x48 DM, wavefront centered at actuator intersections: (0,0) = 1st actuator center
     dm1_yc_act = 23.5              
-    dm1_xtilt_deg = 0           # tilt around X axis (deg)
-    dm1_ytilt_deg = 9.65        # effective DM tilt in deg including 9.65 deg actual tilt and pupil ellipticity
-    dm1_ztilt_deg = 0           # rotation of DM about optical axis (deg)
-    dm2_m = np.zeros((48,48))
-    dm2_xc_act = 23.5           # for 48x48 DM, wavefront centered at actuator intersections: (0,0) = 1st actuator center
+    dm1_xtilt_deg = 9.65        # effective DM tilt in deg including 9.65 deg actual tilt and pupil ellipticity
+    dm1_ytilt_deg = 0 
+    dm1_ztilt_deg = 0 
+    dm2_v = np.zeros((48,48))
+    dm2_xc_act = 23.5 - 0.1     # for 48x48 DM, wavefront centered at actuator intersections: (0,0) = 1st actuator center
     dm2_yc_act = 23.5               
-    dm2_xtilt_deg = 0           # tilt around X axis (deg)
-    dm2_ytilt_deg = 9.65        # effective DM tilt in deg including 9.65 deg actual tilt and pupil ellipticity
-    dm2_ztilt_deg = 0           # rotation of DM about optical axis (deg)
-    hlc_dm1_file = ''
-    hlc_dm2_file = ''
+    dm2_xtilt_deg = 9.65 
+    dm2_ytilt_deg = 0
+    dm2_ztilt_deg = 0
     spam_x_shift_pupdiam = 0    # X,Y shift of wavefront at SPAM; normalized relative to pupil diameter
     spam_y_shift_pupdiam = 0
     spam_x_shift_m = 0          # X,Y shift of wavefront at SPAM in meters
@@ -235,10 +247,10 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
     field_stop_y_offset = 0
     field_stop_x_offset_m = 0   # field stop offset in meters
     field_stop_y_offset_m = 0
-    use_lens_errors = 1         # apply lens errors (1=yes)? Overrides whatever use_errors is set to
     use_pupil_lens = 0          # use pupil imaging lens? 0 or 1
     use_defocus_lens = 0        # use defocusing lens? Options are 1, 2, 3, 4
     end_at_exit_pupil = 0       # return exit pupil corresponding to final image plane
+    excam_despace_m = 0         # increase in spacing between final optic and detector
     final_sampling_m = 0        # final sampling in meters (overrides final_sampling_lam0)
     final_sampling_lam0 = 0     # final sampling in lambda0/D
     output_dim = output_dim0    # dimension of output in pixels (overrides output_dim0)
@@ -247,10 +259,21 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
 
     save_ref_radius = 0
 
+    data_dir = rp.data_dir
+    map_dir = rp.map_dir
+    polfile = rp.polfile
+    dm_dir = rp.dm_files_dir
+
     if 'PASSVALUE' in locals():
+        if 'data_dir' in PASSVALUE: 
+            data_dir = PASSVALUE['data_dir']
+            map_dir = data_dir + '/maps/'
+            polfile = data_dir + '/pol/preflight_pol'
+            dm_dir = data_dir + '/dm/'
         if 'cor_type' in PASSVALUE: cor_type = PASSVALUE['cor_type']
         if 'use_cvs' in PASSVALUE: use_cvs = PASSVALUE['use_cvs']
         if 'use_fpm' in PASSVALUE: use_fpm = PASSVALUE['use_fpm']
+        if 'small_spc_grid' in PASSVALUE: small_spc_grid = PASSVALUE['small_spc_grid']
         if 'pupil_array' in PASSVALUE: pupil_array = PASSVALUE['pupil_array']
         if 'pupil_mask_array' in PASSVALUE: pupil_mask_array = PASSVALUE['pupil_mask_array']
         if 'fpm_array' in PASSVALUE: 
@@ -272,8 +295,6 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         if cor_type == 'hlc' or cor_type == 'hlc_band1':
             file_directory = data_dir + '/hlc_20190210b/'         # must have trailing "/"
             lambda0_m = 0.575e-6
-            hlc_dm1_file = file_directory + 'hlc_dm1.fits'
-            hlc_dm2_file = file_directory + 'hlc_dm2.fits'
         elif cor_type == 'hlc_band2':
             file_directory = data_dir + '/hlc_20200617c_band2/'   # must have trailing "/"
             lambda0_m = 0.660e-6
@@ -304,7 +325,7 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
             diff = np.abs(fpm_lam_um - lam_um)
             w = np.argmin( diff )
             if diff[w] > 0.0001:
-                print("Error in roman_phasec: requested wavelength not within 0.1 nm of nearest available FPM wavelength.")
+                print("Error in roman_preflight: requested wavelength not within 0.1 nm of nearest available FPM wavelength.")
                 print("  requested (um) = " + str(lam_um) + "  closest available (um) = " + str(fpm_lam_um[w]) ) 
                 raise Exception(' ')
             fpm_rootname = file_directory + fpm_lams[w]
@@ -343,7 +364,7 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
             diff = np.abs(fpm_lam_um - lam_um)
             w = np.argmin(diff)
             if diff[w] > 0.0001:
-                print("Error in roman_phasec: requested wavelength not within 0.1 nm of nearest available ZWFS FPM wavelength.")
+                print("Error in roman_preflight: requested wavelength not within 0.1 nm of nearest available ZWFS FPM wavelength.")
                 print("  requested (um) = " + str(lam_um) + "  closest available (um) = " + str(fpm_lam_um[w]) ) 
                 raise Exception(' ')
             fpm_rootname = file_directory + fpm_lams[w]
@@ -361,16 +382,27 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         use_field_stop = False
         use_pupil_mask = False
         use_lyot_stop = False
-        use_hlc_dm_patterns = False
     elif cor_type == 'spc-spec' or cor_type == 'spc-spec_band2' or cor_type == 'spc-spec_band3':
         is_spc = True
         file_dir = data_dir + '/spc_20200617_spec/' # must have trailing "/"
-        pupil_diam_pix = 1000.0     # Y axis pupil diameter in pixels
+        if small_spc_grid != 0:
+                pupil_diam_pix = 500.0          # Y axis pupil diameter in pixels
+                if use_pupil_lens != 0 or use_defocus_lens != 0:
+                    n = 2048 
+                else:
+                    n = 1024
+        else: 
+                pupil_diam_pix = 1000.0         # Y axis pupil diameter in pixels
+                if use_pupil_lens != 0 or use_defocus_lens != 0:
+                    n = 4096 
+                else:
+                    n = 2048
+        sgrid = str(int(pupil_diam_pix))
         if use_cvs != 0:
-            pupil_file = file_dir + 'pupil_SPC-20200617_1000_rotated.fits'
+            pupil_file = file_dir + 'pupil_SPC-20200617_' + sgrid + '_rotated.fits'
         else:
-            pupil_file = file_dir + 'pupil_SPC-20200617_1000.fits'
-        pupil_mask_file = file_dir + 'SPM_SPC-20200617_1000_rounded9_rotated.fits'
+            pupil_file = file_dir + 'pupil_SPC-20200617_' + sgrid + '.fits'
+        pupil_mask_file = file_dir + 'SPM_SPC-20200617_' + sgrid + '_rounded9_rotated.fits'
         fpm_sampling_lam0divD = 0.05         # sampling in fpm_lam0_m/D of FPM mask 
         fpm_file = file_dir + 'fpm_0.05lamD.fits'
         if cor_type == 'spc-spec_band2':
@@ -378,11 +410,7 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         else:
             fpm_lam0_m = 0.73e-6
         lambda0_m = fpm_lam0_m     # FPM scaled for this central wavelength
-        lyot_stop_file = file_dir + 'LS_SPC-20200617_1000.fits'
-        if use_defocus_lens != 0 or use_pupil_lens != 0:
-            n = 4096
-        else:
-            n = 2048
+        lyot_stop_file = file_dir + 'LS_SPC-20200617_' + sgrid + '.fits'
         n_mft = 1400                # gridsize to FPM (propagation to/from FPM handled by MFT)
     elif cor_type == 'spc-spec_rotated' or cor_type == 'spc-spec_band2_rotated' or cor_type == 'spc-spec_band3_rotated':
         is_spc = True
@@ -409,12 +437,24 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
     elif cor_type == 'spc-wide' or cor_type == 'spc-wide_band4' or cor_type == 'spc-wide_band1':
         is_spc = True
         file_dir = data_dir + '/spc_20200610_wfov/' # must have trailing "/"
-        pupil_diam_pix = 1000.0                           # Y axis pupil diameter in pixels
-        if use_cvs != 0:
-            pupil_file = file_dir + 'pupil_SPC-20200610_1000_rotated.fits'
+        if small_spc_grid != 0:
+                pupil_diam_pix = 500.0          # Y axis pupil diameter in pixels
+                if use_pupil_lens != 0 or use_defocus_lens != 0:
+                    n = 2048
+                else:
+                    n = 1024
         else:
-            pupil_file = file_dir + 'pupil_SPC-20200610_1000.fits'
-        pupil_mask_file = file_dir + 'SPM_SPC-20200610_1000_rounded9_gray_rotated.fits'
+                pupil_diam_pix = 1000.0         # Y axis pupil diameter in pixels
+                if use_pupil_lens != 0 or use_defocus_lens != 0:
+                    n = 4096
+                else:
+                    n = 2048
+        sgrid = str(int(pupil_diam_pix))
+        if use_cvs != 0:
+            pupil_file = file_dir + 'pupil_SPC-20200610_' + sgrid + '_rotated.fits'
+        else:
+            pupil_file = file_dir + 'pupil_SPC-20200610_' + sgrid + '.fits'
+        pupil_mask_file = file_dir + 'SPM_SPC-20200610_' + sgrid + '_rounded9_gray_rotated.fits'
         fpm_sampling_lam0divD = 0.1    # sampling in lambda0/D of FPM mask 
         fpm_file = file_dir + 'FPM_SPC-20200610_0.1_lamc_div_D.fits'
         if cor_type == 'spc-wide_band1':
@@ -422,11 +462,7 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         else:
             fpm_lam0_m = 0.825e-6
         lambda0_m = fpm_lam0_m        # FPM scaled for this central wavelength
-        lyot_stop_file = file_dir + 'LS_SPC-20200610_1000.fits'
-        if use_defocus_lens != 0 or use_pupil_lens != 0:
-            n = 4096
-        else:
-            n = 2048
+        lyot_stop_file = file_dir + 'LS_SPC-20200610_' + sgrid + '.fits'
         n_mft = 1400
     elif cor_type == 'spc-mswc':
         is_spc = True
@@ -451,7 +487,7 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
             n = 2048
         n_mft = 1400
     elif cor_type == 'none': 
-        pupil_diam_pix = 309.0
+        pupil_diam_pix = 500.0
         lambda0_m = 0.575e-6
         use_fpm = 0
         use_lyot_stop = 0
@@ -491,7 +527,6 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         if 'cvs_jitter_mirror_y_offset_mas' in PASSVALUE: cvs_jitter_mirror_y_offset_mas = PASSVALUE['cvs_jitter_mirror_y_offset_mas'] / mas_per_lamD
         if 'use_aperture' in PASSVALUE: use_aperture = PASSVALUE['use_aperture']
         if 'use_errors' in PASSVALUE: use_errors = PASSVALUE['use_errors']
-        use_lens_errors = use_errors
         if 'use_pupil_defocus' in PASSVALUE: use_pupil_defocus = PASSVALUE['use_pupil_defocus']
         if 'polaxis' in PASSVALUE: polaxis = PASSVALUE['polaxis'] 
         if 'zindex' in PASSVALUE: zindex = np.array( PASSVALUE['zindex'] )
@@ -517,18 +552,20 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         if 'fsm_y_offset' in PASSVALUE: fsm_y_offset = PASSVALUE['fsm_y_offset']
         if 'fsm_x_offset_mas' in PASSVALUE: fsm_x_offset = PASSVALUE['fsm_x_offset_mas'] / mas_per_lamD
         if 'fsm_y_offset_mas' in PASSVALUE: fsm_y_offset = PASSVALUE['fsm_y_offset_mas'] / mas_per_lamD
-        if 'focm_z_shift_m' in PASSVALUE: focm_z_shift_m = PASSVALUE['focm_z_shift_m']
-        if 'use_hlc_dm_patterns' in PASSVALUE: use_hlc_dm_patterns = PASSVALUE['use_hlc_dm_patterns']
-        if 'use_dm1' in PASSVALUE: use_dm1 = PASSVALUE['use_dm1'] 
+        if 'fcm_z_shift_m' in PASSVALUE: fcm_z_shift_m = PASSVALUE['fcm_z_shift_m']
         if 'dm_sampling_m' in PASSVALUE: dm_sampling_m = PASSVALUE['dm_sampling_m']
-        if 'dm1_m' in PASSVALUE: dm1_m = PASSVALUE['dm1_m']
+        if 'dm_temp_c' in PASSVALUE: dm_temp_c = PASSVALUE['dm_temp_c']
+        if 'dm_version' in PASSVALUE: dm_version = PASSVALUE['dm_version']
+        if 'dm_v_quant' in PASSVALUE: dm_v_quant = PASSVALUE['dm_v_quant']
+        if 'use_dm1' in PASSVALUE: use_dm1 = PASSVALUE['use_dm1'] 
+        if 'dm1_v' in PASSVALUE: dm1_v = PASSVALUE['dm1_v']
         if 'dm1_xc_act' in PASSVALUE: dm1_xc_act = PASSVALUE['dm1_xc_act']
         if 'dm1_yc_act' in PASSVALUE: dm1_yc_act = PASSVALUE['dm1_yc_act']
         if 'dm1_xtilt_deg' in PASSVALUE: dm1_xtilt_deg = PASSVALUE['dm1_xtilt_deg']
         if 'dm1_ytilt_deg' in PASSVALUE: dm1_ytilt_deg = PASSVALUE['dm1_ytilt_deg']
         if 'dm1_ztilt_deg' in PASSVALUE: dm1_ztilt_deg = PASSVALUE['dm1_ztilt_deg']
         if 'use_dm2' in PASSVALUE: use_dm2 = PASSVALUE['use_dm2']
-        if 'dm2_m' in PASSVALUE: dm2_m = PASSVALUE['dm2_m']
+        if 'dm2_v' in PASSVALUE: dm2_v = PASSVALUE['dm2_v']
         if 'dm2_xc_act' in PASSVALUE: dm2_xc_act = PASSVALUE['dm2_xc_act']
         if 'dm2_yc_act' in PASSVALUE: dm2_yc_act = PASSVALUE['dm2_yc_act']
         if 'dm2_xtilt_deg' in PASSVALUE: dm2_xtilt_deg = PASSVALUE['dm2_xtilt_deg']
@@ -593,7 +630,6 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         if 'field_stop_y_offset' in PASSVALUE: field_stop_y_offset = PASSVALUE['field_stop_y_offset']
         if 'field_stop_x_offset_m' in PASSVALUE: field_stop_x_offset_m = PASSVALUE['field_stop_x_offset_m']
         if 'field_stop_y_offset_m' in PASSVALUE: field_stop_y_offset_m = PASSVALUE['field_stop_y_offset_m']
-        if 'use_lens_errors' in PASSVALUE: use_lens_errors = PASSVALUE['use_lens_errors']
         if 'end_at_exit_pupil' in PASSVALUE: end_at_exit_pupil = PASSVALUE['end_at_exit_pupil']
         if 'final_sampling_lam0' in PASSVALUE and 'final_sampling_m' in PASSVALUE:
             print("ERROR: can only specify final_sampling_lam0 or final_sampling_m, not both")
@@ -601,13 +637,10 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         if 'final_sampling_lam0' in PASSVALUE: final_sampling_lam0 = PASSVALUE['final_sampling_lam0']
         if 'final_sampling_m' in PASSVALUE: final_sampling_m = PASSVALUE['final_sampling_m']
         if 'output_dim' in PASSVALUE: output_dim = PASSVALUE['output_dim']
+        if 'excam_despace_m' in PASSVALUE: excam_despace_m = PASSVALUE['excam_despace_m']
         if 'image_x_offset_m' in PASSVALUE: image_x_offset_m = PASSVALUE['image_x_offset_m']
         if 'image_y_offset_m' in PASSVALUE: image_y_offset_m = PASSVALUE['image_y_offset_m']
         if 'save_ref_radius' in PASSVALUE: save_ref_radius = PASSVALUE['save_ref_radius']
-
-    if use_hlc_dm_patterns != 0 and cor_type != 'hlc' and cor_type != 'hlc_band1':
-        raise Exception('ERROR: Can only utilize use_hlc_dm_patterns with Band 1 HLC')
-
 
     if use_cvs == 0:
         diam = 2.363114
@@ -658,13 +691,14 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
     d_fsm_oap1 = 0.354826767220001
     fl_oap1 = 0.503331895563883
     diam_oap1 = 0.060
-    d_oap1_focm = 0.768029932093727 + focm_z_shift_m
-    diam_focm = 0.035
-    d_focm_oap2 = 0.314507535543064 + focm_z_shift_m
+    d_oap1_fcm = 0.768029932093727 + fcm_z_shift_m
+    diam_fcm = 0.035
+    d_fcm_oap2 = 0.314507535543064 + fcm_z_shift_m
     fl_oap2 = 0.579205571254990
     diam_oap2 = 0.060
     d_oap2_dm1 = 0.775857408587825
     d_dm1_dm2 = 1.0
+    diam_dm_aperture = 0.054
     d_dm2_oap3 = 0.394833855161549
     fl_oap3 = 1.217276467668519
     diam_oap3 = 0.06
@@ -699,6 +733,9 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
     d_oap8_pupil = 0.237561587674008
     d_pupil_filter = 0.130
     d_oap8_filter = d_oap8_pupil + d_pupil_filter   # to front of filter
+    d_cfambaffle_filter = 0.0145
+    d_oap8_cfambaffle = d_oap8_filter - (1e-3 + 4e-3) - d_cfambaffle_filter
+    diam_cfambaffle = 0.0071
     diam_filter = 0.009
     filter_thickness = 0.004016105782012525      # account for filter thickness (inclination included)
     filter_index = glass_index('SILICA',lambda_m,data_dir)
@@ -708,14 +745,16 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
     if use_defocus_lens != 0:
         d_lens_fold4 = d_lens_fold4 + 0.001 
     diam_fold4 = 0.036
-    d_fold4_image = 0.050206330646919
+    d_fold4_image = 0.050206330646919 + excam_despace_m
 
+    if use_dm1 != 0 or use_dm2 != 0:
+        dm_struct = rp.load_cgi_dm_files( dm_files_dir=dm_dir, version=dm_version, temp_c=dm_temp_c )
 
     wavefront = proper.prop_begin( diam, lambda_m, n, float(pupil_diam_pix)/n )
     if source_x_offset != 0 or source_y_offset != 0:
         # compute tilted wavefront to offset source by xoffset,yoffset lambda0_m/D
-        xtilt_lam = -source_x_offset * lambda0_m / lambda_m
-        ytilt_lam = -source_y_offset * lambda0_m / lambda_m
+        xtilt_lam = source_y_offset * lambda0_m / lambda_m
+        ytilt_lam = source_x_offset * lambda0_m / lambda_m
         x = np.tile( (np.arange(n)-n//2)/(pupil_diam_pix/2.0), (n,1) )
         y = np.transpose(x)
         proper.prop_multiply( wavefront, np.exp(complex(0,1) * np.pi * (xtilt_lam * x + ytilt_lam * y)) )
@@ -767,22 +806,22 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_sec/2.0 )  
 
         proper.prop_propagate( wavefront, d_sec_pomafold, 'POMA FOLD' )
-        if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_POMAFOLD_measured_phase_error_V1.1.fits', WAVEFRONT=True )
+        if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_POMAFOLD_measured_phase_error_V2.0.fits', WAVEFRONT=True )
         if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_pomafold/2.0 ) 
 
         proper.prop_propagate( wavefront, d_pomafold_m3, 'M3' )
         proper.prop_lens( wavefront, fl_m3 )
-        if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_M3_measured_phase_error_V1.1.fits', WAVEFRONT=True )
+        if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_M3_measured_phase_error_V2.0.fits', WAVEFRONT=True )
         if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_m3/2.0 ) 
 
         proper.prop_propagate( wavefront, d_m3_m4, 'M4' )
         proper.prop_lens( wavefront, fl_m4 )
-        if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_M4_measured_phase_error_V1.1.fits', WAVEFRONT=True )
+        if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_M4_measured_phase_error_V2.0.fits', WAVEFRONT=True )
         if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_m4/2.0 ) 
  
         proper.prop_propagate( wavefront, d_m4_m5, 'M5' )
         proper.prop_lens( wavefront, fl_m5 )
-        if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_M5_measured_phase_error_V1.1.fits', WAVEFRONT=True )
+        if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_M5_measured_phase_error_V2.0.fits', WAVEFRONT=True )
         if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_m5/2.0 ) 
  
         proper.prop_propagate( wavefront, d_m5_ttfold, 'TT FOLD' )
@@ -790,7 +829,7 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_ttfold/2.0 )
 
         proper.prop_propagate( wavefront, d_ttfold_fsm, 'FSM' )
-        if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_LOWORDER_phase_error_V2.0.fits', WAVEFRONT=True )
+        # if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_LOWORDER_phase_error_V2.0.fits', WAVEFRONT=True )
     else:
         # CGI CVS, starting at OTA pupil mask and ending at FSM
         proper.prop_propagate( wavefront, d_cvs_stop_oap2, 'CVS OAP2' )
@@ -804,8 +843,8 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         proper.prop_propagate( wavefront, d_cvs_oap3_jitterfold, 'CVS JITTER_FOLD' )
         if cvs_jitter_mirror_x_offset != 0 or cvs_jitter_mirror_y_offset != 0:
             # compute tilted wavefront to offset source by cvs_jitter_mirror_x_offset,cvs_jitter_mirror_y_offset lambda0_m/D
-            xtilt_lam = -cvs_jitter_mirror_x_offset * lambda0_m / lambda_m
-            ytilt_lam = -cvs_jitter_mirror_y_offset * lambda0_m / lambda_m
+            xtilt_lam = cvs_jitter_mirror_y_offset * lambda0_m / lambda_m
+            ytilt_lam = cvs_jitter_mirror_x_offset * lambda0_m / lambda_m
             x = np.tile( (np.arange(n)-n//2)/(pupil_diam_pix/2.0), (n,1) )
             y = np.transpose(x)
             proper.prop_multiply( wavefront, np.exp(complex(0,1) * np.pi * (xtilt_lam * x + ytilt_lam * y)) )
@@ -844,12 +883,12 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         wavefront0 = shift_image( wavefront0, xshift_pix, yshift_pix )
         wavefront.wfarr[:,:] = proper.prop_shift_center(wavefront0)
         wavefront0 = 0
-    if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_FSM_FLIGHT_measured_coated_phase_error_V2.0.fits', WAVEFRONT=True )
+    if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_FSM_FLIGHT_coated_measured_phase_error_V3.0.fits', WAVEFRONT=True )
     if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_fsm/2.0 )
     if ( fsm_x_offset != 0.0 or fsm_y_offset != 0.0 ):
         # compute tilted wavefront to offset source by fsm_x_offset,fsm_y_offset lambda0_m/D
-        xtilt_lam = fsm_x_offset * lambda0_m / lambda_m
-        ytilt_lam = fsm_y_offset * lambda0_m / lambda_m
+        xtilt_lam = -fsm_y_offset * lambda0_m / lambda_m
+        ytilt_lam = -fsm_x_offset * lambda0_m / lambda_m
         x = np.tile( (np.arange(n)-n//2) / (pupil_diam_pix/2.0), (n,1) )
         y = np.transpose(x)
         proper.prop_multiply( wavefront, np.exp(complex(0,1) * np.pi * (xtilt_lam * x + ytilt_lam * y)) )
@@ -861,36 +900,28 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
     if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_OAP1_phase_error_V3.0.fits', WAVEFRONT=True )
     if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_oap1/2.0 )  
 
-    proper.prop_propagate( wavefront, d_oap1_focm, 'FOCM' )
+    proper.prop_propagate( wavefront, d_oap1_fcm, 'FCM' )
     if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_FCM_EDU_measured_coated_phase_error_V2.0.fits', WAVEFRONT=True )
-    if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_focm/2.0 )
+    if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_fcm/2.0 )
 
-    proper.prop_propagate( wavefront, d_focm_oap2, 'OAP2' )
+    proper.prop_propagate( wavefront, d_fcm_oap2, 'OAP2' )
     proper.prop_lens( wavefront, fl_oap2 )
     if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_OAP2_phase_error_V3.0.fits', WAVEFRONT=True )
     if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_oap2/2.0 )  
 
     proper.prop_propagate( wavefront, d_oap2_dm1, 'DM1' )
-    if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_DM1_phase_error_V1.0.fits', WAVEFRONT=True )
-    if is_hlc == True and use_hlc_dm_patterns == 1 and hlc_dm1_file != '':
-        hlc_dm1 = proper.prop_fits_read( hlc_dm1_file )
-        dm1 = dm1_m + hlc_dm1
-        use_dm1 = 1
-        hlc_dm2 = proper.prop_fits_read( hlc_dm2_file )
-        dm2 = dm2_m + hlc_dm2
-        use_dm2 = 1
-    else:
-        dm1 = dm1_m
-        dm2 = dm2_m
-    if use_dm1 != 0: proper.prop_dm( wavefront, dm1, dm1_xc_act, dm1_yc_act, dm_sampling_m, XTILT=dm1_xtilt_deg, YTILT=dm1_ytilt_deg, ZTILT=dm1_ztilt_deg )
+    if use_dm1 != 0: 
+        rp.cgi_dm( wavefront, dm_struct, 1, dm1_v, dm_sampling_m=dm_sampling_m, dm_v_quant=dm_v_quant,
+                      dm_xc_act=dm1_xc_act, dm_yc_act=dm1_yc_act, 
+                      dm_xtilt_deg=dm1_xtilt_deg, dm_ytilt_deg=dm1_ytilt_deg, dm_ztilt_deg=dm1_ztilt_deg )
+    if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_dm_aperture/2.0 )  
 
     proper.prop_propagate( wavefront, d_dm1_dm2, 'DM2' )
-    if use_dm2 == 1: proper.prop_dm( wavefront, dm2, dm2_xc_act, dm2_yc_act, dm_sampling_m, XTILT=dm2_xtilt_deg, YTILT=dm2_ytilt_deg, ZTILT=dm2_ztilt_deg )
-    if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_DM2_phase_error_V1.0.fits', WAVEFRONT=True )
-    if is_hlc == True:
-        dm2mask = proper.prop_fits_read( file_directory+'dm2mask.fits' )
-        proper.prop_multiply( wavefront, trim(dm2mask, n) )
-        dm2mask = 0
+    if use_dm2 == 1: 
+        rp.cgi_dm( wavefront, dm_struct, 2, dm2_v, dm_sampling_m=dm_sampling_m, dm_v_quant=dm_v_quant,
+                      dm_xc_act=dm2_xc_act, dm_yc_act=dm2_yc_act, 
+                      dm_xtilt_deg=dm2_xtilt_deg, dm_ytilt_deg=dm2_ytilt_deg, dm_ztilt_deg=dm2_ztilt_deg )
+    if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_dm_aperture/2.0 )  
 
     proper.prop_propagate( wavefront, d_dm2_oap3, 'OAP3' )
     proper.prop_lens( wavefront, fl_oap3 )
@@ -914,7 +945,7 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         else:
             pupil_mask = trim( pupil_mask_array, n )
 
-        if sm_despace_m != 0 or focm_z_shift_m != 0 or (use_cvs == 1 and cvs_source_z_offset_m != 0):
+        if sm_despace_m != 0 or fcm_z_shift_m != 0 or (use_cvs == 1 and cvs_source_z_offset_m != 0):
             # resize SPC pupil mask if something moved that would change wavefront sampling 
             mag = 2 * proper.prop_get_beamradius(wavefront) / diam_beam_at_pupil_mask
         else:
@@ -1056,7 +1087,7 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
             lyot = trim( lyot, n )
         else:
             lyot = trim( lyot_stop_array, n )
-        if sm_despace_m != 0 or focm_z_shift_m != 0 or (use_cvs == 1 and cvs_source_z_offset_m != 0):
+        if sm_despace_m != 0 or fcm_z_shift_m != 0 or (use_cvs == 1 and cvs_source_z_offset_m != 0):
             #-- resize Lyot stop if something moved that would change sampling at pupil
             mag = 2 * proper.prop_get_beamradius(wavefront) / diam_beam_at_lyot_stop
         else:
@@ -1076,7 +1107,7 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
 
     proper.prop_propagate( wavefront, d_lyotstop_oap7, 'OAP7' )
     proper.prop_lens( wavefront, fl_oap7 )
-    if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_OAP7_phase_error_V3.0.fits', WAVEFRONT=True )
+    if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_OAP7_phase_error_V4.0.fits', WAVEFRONT=True )
     if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_oap7/2.0 )  
 
     proper.prop_propagate( wavefront, d_oap7_fieldstop, 'FIELD_STOP', TO_PLANE=1 )
@@ -1106,17 +1137,22 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
     proper.prop_propagate( wavefront, d_fieldstop_oap8, 'OAP8' )
     proper.prop_lens( wavefront, fl_oap8 )
     if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_OAP8_phase_error_V3.0.fits', WAVEFRONT=True )
-    if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_oap8/2.0 )  
-
-    proper.prop_propagate( wavefront, d_oap8_filter, 'filter' )
+    if use_aperture != 0: 
+        proper.prop_circular_aperture( wavefront, diam_oap8/2.0 )  
+        # if use_aperture=1, then propagate from OAP8 to the CFAM baffle; otherwise, propagate directly to CFAM (filter)
+        proper.prop_propagate( wavefront, d_oap8_cfambaffle, 'CFAM BAFFLE' )
+        # baffle is oval design, but one side of beam is blocked by filter itself, so represent baffle as circle
+        proper.prop_circular_aperture( wavefront, diam_cfambaffle/2 )
+        proper.prop_propagate( wavefront, d_cfambaffle_filter, 'filter' )
+    else:
+        proper.prop_propagate( wavefront, d_oap8_filter, 'filter' )
     if use_errors != 0: proper.prop_errormap( wavefront, map_dir+'roman_phasec_FILTER_phase_error_V1.0.fits', WAVEFRONT=True )
-    if use_aperture != 0: proper.prop_circular_aperture( wavefront, diam_filter/2.0 ) 
 
     # propagate to lens, apply lens, then propagate to detector
 
     if use_pupil_lens == 0 and use_defocus_lens == 0:
         # use imaging lens to create normal focus
-        if use_lens_errors != 0:
+        if use_errors != 0:
             imaging_lens_error_files = [map_dir+'roman_phasec_LENS_phase_error_V1.0.fits', ' ']
         else:
             imaging_lens_error_files = ' '
@@ -1126,24 +1162,24 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
                 'IMAGING LENS', 'IMAGE', ERROR_MAP_FILES=imaging_lens_error_files, TO_PLANE=1 )
     elif use_pupil_lens != 0:
         # use pupil imaging lens
-        if use_lens_errors != 0:
-            pupil_lens_error_files = [ map_dir+'roman_phasec_PUPIL_IMAGE_LENS1_measured_phase_error_V2.0.fits', map_dir+'roman_phasec_PUPIL_IMAGE_LENS2_measured_phase_error_V2.0.fits']
+        if use_errors != 0:
+            pupil_lens_error_files = [ map_dir+'roman_phasec_PUPIL_IMAGE_LENS1_measured_phase_error_V3.0.fits', map_dir+'roman_phasec_PUPIL_IMAGE_LENS2_measured_phase_error_V3.0.fits']
         else:
             pupil_lens_error_files = ' '
-        to_from_doublet( wavefront, d_filter_lens, d_lens_fold4+d_fold4_image, 
+        to_from_doublet( wavefront, d_filter_lens, d_lens_fold4+d_fold4_image+1e-3, 
                 0.0345, -0.2079, 0.002979, glass_index('S-BSL7R', lambda_m, data_dir), 0.000441, 
-                858.2, 0.05462, 0.002453, glass_index('PBM2R', lambda_m, data_dir), 
+                190.0, 0.05462, 0.002453, glass_index('PBM2R', lambda_m, data_dir), 
                 'PUPIL IMAGING LENS', 'IMAGE', ERROR_MAP_FILES=pupil_lens_error_files, TO_PLANE=0 )
     elif use_defocus_lens != 0:     
         # use one of 4 defocusing lenses
-        r1_lens = [0.074908, 0.07965, 0.085371, 0.174872]
-        r2_lens = [-146.3, -153.7, -154.9, -110.0]
+        r1_lens = [0.074908, 0.07965, 0.085518, 0.174872]
+        r2_lens = [-93.62, -98.35, -99.12, -70.41]
         ct_lens = [0.004995, 0.00499, 0.004978, 0.004967]
-        if use_lens_errors != 0:
-            defocus_lens_error_file = map_dir+'roman_phasec_DEFOCUSLENS' + str(use_defocus_lens) + '_measured_phase_error_V2.0.fits'
+        if use_errors != 0:
+            defocus_lens_error_file = map_dir+'roman_phasec_DEFOCUSLENS' + str(use_defocus_lens) + '_measured_phase_error_V3.0.fits'
         else:
             defocus_lens_error_file = ' '
-        to_from_singlet( wavefront, d_filter_lens, d_lens_fold4+d_fold4_image, 
+        to_from_singlet( wavefront, d_filter_lens, d_lens_fold4+d_fold4_image+1e-3, 
             r1_lens[use_defocus_lens-1], r2_lens[use_defocus_lens-1], ct_lens[use_defocus_lens-1],
             glass_index('SILICA', lambda_m, data_dir), 'DEFOCUS LENS', 'IMAGE', 
             ERROR_MAP_FILE=defocus_lens_error_file, TO_PLANE=(use_defocus_lens == 3 or use_defocus_lens == 4) )
@@ -1177,6 +1213,12 @@ def roman_phasec( lambda_m, output_dim0, PASSVALUE={'dummy':0} ):
         f = interp1d(lam_m, cc, kind='linear', fill_value='extrapolate')
         c = f( lambda_m )
         wavefront *= np.exp((complex(0,1) * np.pi / lambda_m * c) * rsqr) * np.exp(-complex(0,1)*0.1)
+
+    # rotate/flip wavefront to match CGI detector frame coordinates
+
+    wavefront = np.fliplr(wavefront).copy() 
+    wavefront = np.rot90( wavefront, 3 ).copy() 
+    wavefront = np.roll( wavefront, (1,1), axis=(0,1) )   # put center back in original pixel (n/2,n/2) since n is even
 
     # shift image, if requested
 
