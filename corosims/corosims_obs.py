@@ -50,7 +50,13 @@ class Observation():
             name='OS_'+date_str
         self.name_OS = name
         # scene['name'] = name
-        self.paths = {'outdir': os.path.join('output','SpeckleSeries',name)}
+        
+        # Paths
+        localpath = os.path.dirname(os.path.abspath(__file__))
+        head, tail = os.path.split(localpath)
+
+        self.paths = {'outdir': os.path.join('output','SpeckleSeries',name),
+                      'datadir': os.path.join(head, 'data')}
         # if not os.path.exists(self.paths['outdir']):
         #     os.makedirs(self.paths['outdir'])
 
@@ -108,6 +114,100 @@ class Observation():
         self.num_scenes = self.num_scenes + 1
 
         
+    def convolve_image_with_prf(self,image_scene, image_pixel_scale,thresh=1e-20):
+        """
+        Convolve an image with a grid of PSFs while handling different samplings.
+        
+        Parameters:
+        
+        Returns:
+            np.ndarray: Convolved image.
+        """
+        from scipy.interpolate import LinearNDInterpolator, RegularGridInterpolator
+        
+        n=201
+        
+        # Inner region
+        dx_list = [22.2,5.3,1.1]
+        owa_list = [500,160,35]
+        label_out = '_maxSep{}mas_res{:.1f}mas'
+        
+        prf_interpolator_list = []
+        for dx,owa in zip(dx_list,owa_list):
+            # Load FITS data
+            flnm = os.path.join(self.paths['datadir'],'psf_grids_for_convolution','im_cube_PRF'+label_out.format(owa,dx)+'.fits')
+            data = pyfits.open(flnm)
+            psf_cube = data[0].data
+            flnm = os.path.join(self.paths['datadir'],'psf_grids_for_convolution','sep_x_PRF'+label_out.format(owa,dx)+'.fits')
+            data = pyfits.open(flnm)
+            sep_offset_x = data[0].data/1000
+            flnm = os.path.join(self.paths['datadir'],'psf_grids_for_convolution','sep_y_PRF'+label_out.format(owa,dx)+'.fits')
+            data = pyfits.open(flnm)
+            sep_offset_y = data[0].data/1000
+            psf_pixel_scale = 0.0218
+            # Flatten the PSF grid positions
+            psf_positions = np.c_[sep_offset_x.ravel(), sep_offset_y.ravel()]
+            
+    
+            # Create an interpolator for PSFs in the cube
+            # prf_interpolator = LinearNDInterpolator(psf_positions, psf_cube)
+            prf_interpolator = RegularGridInterpolator((range(n),range(n),sep_offset_x.ravel(), sep_offset_y.ravel()), psf_cube)
+            prf_interpolator_list.append(prf_interpolator)
+
+
+
+        # import pdb 
+        # pdb.set_trace()
+
+
+        # # Define original image grid in physical units
+        im_scene_extent = (image_scene.shape[0] // 2) * image_pixel_scale
+        x_im_scene = np.linspace(-im_scene_extent, im_scene_extent, image_scene.shape[0])
+        y_im_scene = np.linspace(-im_scene_extent, im_scene_extent, image_scene.shape[0])
+        # interp_func = RegularGridInterpolator((x_im_scene, y_im_scene), image_scene, bounds_error=False, fill_value=0)
+
+        # # PSF interp
+        # target_extent = (psf_cube.shape[1] // 2) * psf_pixel_scale
+        # x_target = np.linspace(-target_extent, target_extent, psf_cube.shape[1])
+        # y_target = np.linspace(-target_extent, target_extent, psf_cube.shape[1])
+        # x_target_grid, y_target_grid = np.meshgrid(x_target, y_target)
+
+        # points = np.c_[y_target_grid.ravel(), x_target_grid.ravel()]
+        # resampled_image = interp_func(points).reshape(psf_cube.shape[1], psf_cube.shape[1])
+
+        grid_for_interp=np.meshgrid(range(n),range(n))
+        flattened_grid = np.vstack([grid_for_interp[0].flatten(),grid_for_interp[1].flatten()])
+
+        convolved_image = np.zeros((n,n))
+        for II in range(len(x_im_scene)):
+            for JJ in range(len(y_im_scene)):
+                sep = np.sqrt(x_im_scene[II]**2+y_im_scene[JJ]**2)
+                if sep<0.5 and image_scene[II,JJ]>thresh:
+                    if sep<owa_list[2]/1000:
+                        prf_interpolator = prf_interpolator_list[2]
+                    elif sep<owa_list[1]/1000:
+                        prf_interpolator = prf_interpolator_list[1]
+                    elif sep<owa_list[0]/1000:
+                        prf_interpolator = prf_interpolator_list[0]
+                    # Interpolate the PSF at this location
+                    points_interp = np.vstack([ flattened_grid , x_im_scene[II]*np.ones(len(grid_for_interp[0].flatten())), y_im_scene[JJ]*np.ones(len(grid_for_interp[0].flatten())) ]).T
+                    psf = prf_interpolator(points_interp).reshape(n,n)
+
+                    # Ensure the PSF is valid
+                    if psf is not None and np.sum(psf) > 0:
+                        # Convolve the local patch with the interpolated PSF
+                        # convolved_image[II,JJ] = np.sum(resampled_image * psf[:resampled_image.shape[0], :resampled_image.shape[1]])
+                        convolved_image = convolved_image + image_scene[II,JJ] * psf#[:resampled_image.shape[0], :resampled_image.shape[1]]
+                        # if resampled_image[JJ,II]>3.9e-5:
+                        #     import pdb 
+                        #     pdb.set_trace()
+
+    
+        # Normalize to conserve energy
+        # convolved_image *= resampled_image.sum() / convolved_image.sum()
+
+        return convolved_image
+
     def add_point_source_to_scene(self,source_index_id=None,scene_index_id=None,
                                   source_name=None,scene_name=None,
                                   xoffset_mas=0,yoffset_mas=0):
