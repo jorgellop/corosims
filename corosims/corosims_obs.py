@@ -12,7 +12,7 @@ from utils import make_circ_mask,degenPA,crop_data
 
 class Observation():
     """
-    Core simulator of Roman Coronagraph images. A wrapper over cgisim, by John Krist.
+    Observation class to define a simulation.
 
 
     Parameters
@@ -61,16 +61,23 @@ class Observation():
         #     os.makedirs(self.paths['outdir'])
 
     def create_source(self,name=None,vmag=None,star_type='a0v',spectrum=None,stellar_diam=None):
-        """
-        Create oint source.
     
+        """
+        Create a point source and add it to the observation.
         self.sources will carry a list of dictionaries with all the information about the user-defined sources.     
 
         Parameters
         ----------
-        mp : ModelParameters
-            Structure containing optical model parameters
-    
+        name : str, optional
+            Name of the source.
+        vmag : float, optional
+            V-band magnitude of the source.
+        star_type : str, optional
+            Spectral type of the star (default: 'a0v').
+        spectrum : np.ndarray, optional
+            Spectrum of the source.
+        stellar_diam : float, optional
+            Stellar diameter in milliarcseconds.
         """
         if name is None:
             name = 'source{}'.format(self.num_sources)
@@ -95,8 +102,8 @@ class Observation():
 
         Parameters
         ----------
-        mp : ModelParameters
-            Structure containing optical model parameters
+        name : str, optional
+            Name of the scene.
     
         """
                     
@@ -118,10 +125,19 @@ class Observation():
         """
         Convolve an image with a grid of PSFs while handling different samplings.
         
-        Parameters:
+        Parameters
+        ----------
+        image_scene : np.ndarray
+            Input scene image.
+        image_pixel_scale : float
+            Pixel scale of the input image in mas/pixel.
+        thresh : float, optional
+            Threshold for image values to be considered in convolution (default: 1e-20).
         
-        Returns:
-            np.ndarray: Convolved image.
+        Returns
+        -------
+        np.ndarray
+            Convolved image.
         """
         from scipy.interpolate import LinearNDInterpolator, RegularGridInterpolator
         
@@ -212,15 +228,22 @@ class Observation():
                                   source_name=None,scene_name=None,
                                   xoffset_mas=0,yoffset_mas=0):
         """
-        Add a source to a previously generated scene.
-    
-        self.scenes will carry a list of dictionaries with all the information about the user-defined scenes.     
-
+        Add a point source to a previously generated scene.
+        
         Parameters
         ----------
-        mp : ModelParameters
-            Structure containing optical model parameters
-    
+        source_index_id : int, optional
+            Index of the source to be added.
+        scene_index_id : int, optional
+            Index of the scene to which the source is added.
+        source_name : str, optional
+            Name of the source.
+        scene_name : str, optional
+            Name of the scene.
+        xoffset_mas : float, optional
+            X-offset of the source in milliarcseconds (default: 0).
+        yoffset_mas : float, optional
+            Y-offset of the source in milliarcseconds (default: 0).
         """
         if self.num_scenes==0:
             warnings.warn("No scene has been defined")
@@ -272,15 +295,24 @@ class Observation():
                        passvalue_proper=None,exptime=None,
                        V3PA=0):
         """
-        Generate batch.
-    
-        self.scenes will carry a list of dictionaries with all the information about the user-defined scenes.     
-
+        Create an observation batch.
+        
         Parameters
         ----------
-        mp : ModelParameters
-            Structure containing optical model parameters
-    
+        batch_id : int, optional
+            Identifier for the batch.
+        scene_index_id : int, optional
+            Index of the scene associated with this batch.
+        scene_name : str, optional
+            Name of the scene associated with this batch.
+        jitter_x : list, optional
+            List of X-jitter values.
+        jitter_y : list, optional
+            List of Y-jitter values.
+        num_timesteps : int, optional
+            Number of timesteps in the batch.
+        V3PA : float, optional
+            Position angle of the telescope (default: 0).
         """
         # Checking that IDs are valid for scene
         if scene_index_id is not None and scene_name is not None:
@@ -420,15 +452,16 @@ class Observation():
                                     vmin_fig=None,vmax_fig=None,title_fig='',
                                     use_emccd=False,use_photoncount=False,flag_return_contrast=False,flag_compute_normalization=False):
         """
-        Generate speckle series.
-    
-
+        Generate a speckle series.
+        
         Parameters
         ----------
-        batch_id_list : list
-            List containing the batch IDs for which to generate the speckle series
-            By default use all batches
-    
+        batch_id_list : list, optional
+            List of batch IDs for which to generate speckle series.
+        outdir0 : str, optional
+            Output directory (default: 'output/SpeckleSeries/').
+        num_images_printed : int, optional
+            Number of images to print (default: 0).
         """
         outdir = self.paths['outdir']#outdir0+self.scene['name']+'/'
         if not os.path.exists(outdir):
@@ -661,11 +694,9 @@ class Observation():
         return header
             
     def load_batches_cubes(self):
-        # =============================================================================
-        # load_batches_cubes
-        # 
-        # Load pre-computed image cubes for scene
-        # =============================================================================
+        """
+        Load precomputed image cubes for the scene.
+        """
         datadir = self.paths['outdir']
         if len(self.batches)==0:
             warnings.warn("No batches!")
@@ -696,6 +727,14 @@ class Observation():
             
             
     def add_detector_noise_to_batches(self,label_out=''):
+        """
+        Add detector noise to precomputed image batches.
+        
+        Parameters
+        ----------
+        label_out : str, optional
+            Label to append to output filenames (default: '').
+        """
         from scipy.interpolate import interp1d
         
         # Load cubes into batches
