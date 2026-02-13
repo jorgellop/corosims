@@ -635,6 +635,51 @@ class corosims_core():
         
         return Im_noisy
     
+    def cgi_dm( self, dm_struct=None, dm=1, checked_v=None, 
+            dm_v_quant=110.0 / 2.**16 ):
+
+    #-- CGI_DM
+    #-- Call: cgi_dm( wavefront, dm_struct, dm, checked_v [, dm_sampling=dm_sampling_m] 
+    #--                 [, dm_xc_act=dm_xc_act] [, dm_yc_act=dm_yc_act], [, dm_v_quant=dm_v_quant] 
+    #--                 [, dm_xtilt_deg=dm_xtilt_deg] [, dm_ytilt_deg=dm_ytilt_deg] [, dm_ztilt_deg=dm_ztilt_deg]
+    #--
+    #-- Note: Must call load_cgi_dm_files before calling this
+    #--
+    #--
+    #-- INPUTS:
+    #--   wavefront: 
+    #--     PROPER wavefront structure
+    #--   dm: 
+    #--     integer specifying which DM, either 1 or 2
+    #--   checked_v: 
+    #--     float, nact x nact array, voltages to send to the DM; these are assumed to meet neighbor and min/max volt rules.
+    #--       As voltage increases, the actuator is pulled down into the DM
+    #-- OPTIONAL INPUTS:
+    #--   dm_sampling_m:
+    #--     DM actuator spacing in meters
+    #--   dm_xc_act, dm_yc_act:
+    #--     Wavefront center on DM in actuators (nominally 23.5, 23.5)
+    #--   dm_xtilt_deg, dm_ytilt_deg, dm_ztilt_deg: 
+    #--     DM rotations in degrees; Z is axis perpendicular to DM surface
+    #--   dm_v_quant:
+    #--     Voltage resolution due to DAC
+    #--   surface_map: Set to a named variable that will contain the DM surface (not wavefront) map,
+    #--     excluding surface errors
+        if checked_v is None:
+            checked_v = self.options['dm{}'.format(dm)]
+            
+        if dm_struct is None:
+            if not hasattr(self,'dm_struct'):
+                self.dm_struct = roman_preflight_proper.load_cgi_dm_files()
+            dm_struct = self.dm_struct
+        dm_v = np.floor(checked_v / dm_v_quant) * dm_v_quant
+
+        # convert voltages to strokes to feed to prop_dm; note that volts_to_stroke() applies coupling
+
+        actual_stroke_m = roman_preflight_proper.volts_to_stroke( dm_struct, dm, dm_v )
+
+        return actual_stroke_m
+
     def compute_contrast_curve(self,ni_im,iwa=3,owa=9,d_sep=0.5):
         """
         Compute the contrast curve of the coronagraphic image.
