@@ -94,7 +94,8 @@ class corosims_core():
             Stellar type
         vmag : Float
             V-Magnitude of the source
-    
+        stellar_diam : float, optional
+            Stellar diameter in milliarcseconds (default is None).
         """
         self.source = {'star_type': star_type,
                             'vmag':vmag,
@@ -106,19 +107,22 @@ class corosims_core():
                    cgi_shift_x=0,cgi_shift_y=0,
                    passvalue_proper={}):
         """
-        Compute the electric field.
+        Compute the electric field at the image plane.
     
-        This is where all images are computed.     
-
         Parameters
         ----------
-        use_fpm : float
-            0 or 1, 0: don't use focal plane mask, 1: use focal plane mask
-        zindex : ModelVariables
-            Structure containing temporary optical model variables
-        isNorm : bool
-            If False, return an unnormalized image. If True, return a
-            normalized image with the currently stored norm value.
+        x_offset_mas : float, optional
+            X-offset in milliarcseconds (default is 0).
+        y_offset_mas : float, optional
+            Y-offset in milliarcseconds (default is 0).
+        use_fpm : int, optional
+            Use focal plane mask (1: yes, 0: no), default is 1.
+        zindex : np.ndarray, optional
+            Zernike mode indices (default is None).
+        zval_m : np.ndarray, optional
+            Zernike mode amplitudes in meters (default is None).
+        passvalue_proper : dict, optional
+            Additional optical parameters (default is empty dictionary).
     
         Returns
         -------
@@ -170,8 +174,8 @@ class corosims_core():
     
         Returns
         -------
-        normI : float
-            normalization factor equal to the peak off-axis PSF
+        counts_spectrum : list
+            Spectrum of the source in counts per wavelength bin.
         """
         
         star_type = self.source["star_type"]
@@ -242,11 +246,8 @@ class corosims_core():
 
         Parameters
         ----------
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
-    
+        All listed parameters control optical misalignments, jitter, and noise settings for the simulation.
+
         Returns
         -------
         Isum : numpy ndarray
@@ -380,7 +381,7 @@ class corosims_core():
 
     def read_in_jitter_deltaEFs(self,datadir_jitt0=None):
         """
-        Read teh jitter products needed for simulating jitter.
+        Read the jitter products needed for simulating jitter.
     
         Parameters
         ----------
@@ -581,17 +582,20 @@ class corosims_core():
                      pixel_pitch=13e-6, e_per_dn=1.0, numel_gain_register=604, nbits=14,
                      use_traps = False,date4traps=2028.0):
         """
-        Create emccd object.
+        Define an EMCCD detector model.
     
-        Used to return images in units of contrast.     
-
         Parameters
         ----------
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
-    
+        em_gain : float
+            Electron multiplication gain.
+        full_well_image : float
+            Full-well capacity of an individual pixel in electrons.
+        dark_rate : float
+            Dark current rate in e-/s.
+        read_noise : float
+            Readout noise in e-.
+        nbits : int
+            Number of bits in ADC.
         """
         emccd = EMCCDDetectBase( em_gain=em_gain, full_well_image=full_well_image, full_well_serial=full_well_serial,
                              dark_current=dark_rate, cic=cic_noise, read_noise=read_noise, bias=bias,
@@ -614,43 +618,90 @@ class corosims_core():
         
     def add_detector_noise(self,Im, exptime):
         """
-        Generate image.
-    
-        Used to return images in units of contrast.     
-
+        Add detector noise to the image.
+        
         Parameters
         ----------
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
-    
+        image : np.ndarray
+            Input image to which detector noise will be added.
+        exptime : float
+            Exposure time.
+        
         Returns
         -------
-        Im_noisy : numpy ndarray
-            2 D image of the intensity of the simulated source with detector noise
+        image_noisy : np.ndarray
+            Image with detector noise added.
         """
         Im_noisy = self.emccd.sim_sub_frame(Im, exptime).astype(float)
         
         return Im_noisy
     
+    def cgi_dm( self, dm_struct=None, dm=1, checked_v=None, 
+            dm_v_quant=110.0 / 2.**16 ):
+
+    #-- CGI_DM
+    #-- Call: cgi_dm( wavefront, dm_struct, dm, checked_v [, dm_sampling=dm_sampling_m] 
+    #--                 [, dm_xc_act=dm_xc_act] [, dm_yc_act=dm_yc_act], [, dm_v_quant=dm_v_quant] 
+    #--                 [, dm_xtilt_deg=dm_xtilt_deg] [, dm_ytilt_deg=dm_ytilt_deg] [, dm_ztilt_deg=dm_ztilt_deg]
+    #--
+    #-- Note: Must call load_cgi_dm_files before calling this
+    #--
+    #--
+    #-- INPUTS:
+    #--   wavefront: 
+    #--     PROPER wavefront structure
+    #--   dm: 
+    #--     integer specifying which DM, either 1 or 2
+    #--   checked_v: 
+    #--     float, nact x nact array, voltages to send to the DM; these are assumed to meet neighbor and min/max volt rules.
+    #--       As voltage increases, the actuator is pulled down into the DM
+    #-- OPTIONAL INPUTS:
+    #--   dm_sampling_m:
+    #--     DM actuator spacing in meters
+    #--   dm_xc_act, dm_yc_act:
+    #--     Wavefront center on DM in actuators (nominally 23.5, 23.5)
+    #--   dm_xtilt_deg, dm_ytilt_deg, dm_ztilt_deg: 
+    #--     DM rotations in degrees; Z is axis perpendicular to DM surface
+    #--   dm_v_quant:
+    #--     Voltage resolution due to DAC
+    #--   surface_map: Set to a named variable that will contain the DM surface (not wavefront) map,
+    #--     excluding surface errors
+        if checked_v is None:
+            checked_v = self.options['dm{}'.format(dm)]
+            
+        if dm_struct is None:
+            if not hasattr(self,'dm_struct'):
+                self.dm_struct = roman_preflight_proper.load_cgi_dm_files()
+            dm_struct = self.dm_struct
+        dm_v = np.floor(checked_v / dm_v_quant) * dm_v_quant
+
+        # convert voltages to strokes to feed to prop_dm; note that volts_to_stroke() applies coupling
+
+        actual_stroke_m = roman_preflight_proper.volts_to_stroke( dm_struct, dm, dm_v )
+
+        return actual_stroke_m
+
     def compute_contrast_curve(self,ni_im,iwa=3,owa=9,d_sep=0.5):
         """
-        Compute contrast curve.
+        Compute the contrast curve of the coronagraphic image.
     
-        Used to return images in units of contrast.     
-
         Parameters
         ----------
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
-        use_fpm : int
-            1: use focal plane mask, 0: don't use focalplane mask
+        ni_im : np.ndarray
+            Normalized intensity image.
+        iwa : float, optional
+            Inner working angle in lambda/D (default is 3).
+        owa : float, optional
+            Outer working angle in lambda/D (default is 9).
+        d_sep : float, optional
+            Radial step size in lambda/D (default is 0.5).
     
         Returns
         -------
-        Im_noisy : numpy ndarray
-            2 D image of the intensity of the simulated source with detector noise
+        sep_arr : np.ndarray
+            Array of separations in lambda/D.
+        ni_curve : np.ndarray
+            Contrast curve at each separation.
         """
 
         sampling = self.options['sampling'][self.bandpass]

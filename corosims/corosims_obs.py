@@ -12,7 +12,7 @@ from utils import make_circ_mask,degenPA,crop_data
 
 class Observation():
     """
-    Core simulator of Roman Coronagraph images. A wrapper over cgisim, by John Krist.
+    Observation class to define a simulation.
 
 
     Parameters
@@ -50,21 +50,35 @@ class Observation():
             name='OS_'+date_str
         self.name_OS = name
         # scene['name'] = name
-        self.paths = {'outdir': os.path.join('output','SpeckleSeries',name)}
+        
+        # Paths
+        localpath = os.path.dirname(os.path.abspath(__file__))
+        head, tail = os.path.split(localpath)
+
+        self.paths = {'outdir': os.path.join('output','SpeckleSeries',name),
+                      'datadir': os.path.join(head, 'data'),
+                      'datadir_psfs': os.path.join(head, 'data','psf_grids_for_convolution')}
         # if not os.path.exists(self.paths['outdir']):
         #     os.makedirs(self.paths['outdir'])
 
     def create_source(self,name=None,vmag=None,star_type='a0v',spectrum=None,stellar_diam=None):
-        """
-        Create oint source.
     
+        """
+        Create a point source and add it to the observation.
         self.sources will carry a list of dictionaries with all the information about the user-defined sources.     
 
         Parameters
         ----------
-        mp : ModelParameters
-            Structure containing optical model parameters
-    
+        name : str, optional
+            Name of the source.
+        vmag : float, optional
+            V-band magnitude of the source.
+        star_type : str, optional
+            Spectral type of the star (default: 'a0v').
+        spectrum : np.ndarray, optional
+            Spectrum of the source.
+        stellar_diam : float, optional
+            Stellar diameter in milliarcseconds.
         """
         if name is None:
             name = 'source{}'.format(self.num_sources)
@@ -89,8 +103,8 @@ class Observation():
 
         Parameters
         ----------
-        mp : ModelParameters
-            Structure containing optical model parameters
+        name : str, optional
+            Name of the scene.
     
         """
                     
@@ -108,19 +122,110 @@ class Observation():
         self.num_scenes = self.num_scenes + 1
 
         
+    def convolve_image_with_prf(self,image_scene, image_pixel_scale, thresh=1e-20,datadir_psfs0=None):
+        """
+        Convolve an image with a grid of PSFs while handling different samplings. 
+        
+        Parameters
+        ----------
+        image_scene : np.ndarray
+            Input scene image.
+        image_pixel_scale : float
+            Pixel scale of the input image in mas/pixel.
+        thresh : float, optional
+            Threshold for image values to be considered in convolution (default: 1e-20).
+        
+        Returns
+        -------
+        np.ndarray
+            Convolved image.
+        """
+        from scipy.interpolate import RegularGridInterpolator
+        
+        if datadir_psfs0 is None:
+            datadir_psfs0 = self.paths["datadir_psfs"]
+        datadir_psfs = os.path.join(datadir_psfs0, 'cor_type_'+self.corosims.cor_type+'_band'+self.corosims.bandpass+'_polaxis'+str(self.corosims.polaxis))
+
+        sz_im = self.corosims.sz_im
+        
+        # Inner region
+        dx_list = [22.2,5.3,1.1]
+        owa_list = [500,160,35]
+        label_out = '_maxSep{}mas_res{:.1f}mas'
+        
+        # Set up interpolator for each region with its correspopnding resolution
+        prf_interpolator_list = []
+        for dx,owa in zip(dx_list,owa_list):
+            # Load FITS data
+            flnm = os.path.join(datadir_psfs,'im_cube_PRF'+label_out.format(owa,dx)+'.fits')
+            data = pyfits.open(flnm)
+            psf_cube = data[0].data
+            flnm = os.path.join(datadir_psfs,'sep_x_PRF'+label_out.format(owa,dx)+'.fits')
+            data = pyfits.open(flnm)
+            sep_offset_x = data[0].data/1000
+            flnm = os.path.join(datadir_psfs,'sep_y_PRF'+label_out.format(owa,dx)+'.fits')
+            data = pyfits.open(flnm)
+            sep_offset_y = data[0].data/1000
+            
+            # Set up interpolator 
+            prf_interpolator = RegularGridInterpolator((range(sz_im),range(sz_im),sep_offset_x.ravel(), sep_offset_y.ravel()), psf_cube)
+            prf_interpolator_list.append(prf_interpolator)
+
+        # # Define original scene image grid in physical units
+        im_scene_extent = (image_scene.shape[0] // 2) * image_pixel_scale
+        x_im_scene = np.linspace(-im_scene_extent, im_scene_extent, image_scene.shape[0])
+        y_im_scene = np.linspace(-im_scene_extent, im_scene_extent, image_scene.shape[0])
+
+        # Auxiliary grid for interpolation purposes
+        grid_for_interp=np.meshgrid(range(sz_im),range(sz_im))
+        flattened_grid = np.vstack([grid_for_interp[0].flatten(),grid_for_interp[1].flatten()])
+        
+        # Apply PRF to scene image pixel-by-pixel
+        convolved_image = np.zeros((sz_im,sz_im))
+        for II in range(len(x_im_scene)):
+            for JJ in range(len(y_im_scene)):
+                sep = np.sqrt(x_im_scene[II]**2+y_im_scene[JJ]**2)
+                if sep<0.5 and image_scene[II,JJ]>thresh:
+                    if sep<owa_list[2]/1000:
+                        # import pdb 
+                        # pdb.set_trace()
+                        prf_interpolator = prf_interpolator_list[2]
+                    elif sep<owa_list[1]/1000:
+                        prf_interpolator = prf_interpolator_list[1]
+                    elif sep<owa_list[0]/1000:
+                        prf_interpolator = prf_interpolator_list[0]
+                    # Interpolate the PSF at this location
+                    points_interp = np.vstack([ flattened_grid , x_im_scene[II]*np.ones(len(grid_for_interp[0].flatten())), y_im_scene[JJ]*np.ones(len(grid_for_interp[0].flatten())) ]).T
+                    psf = prf_interpolator(points_interp).reshape(sz_im,sz_im)
+
+                    # Ensure the PSF is valid
+                    if psf is not None and np.sum(psf) > 0:
+                        # Convolve the local patch with the interpolated PSF
+                        # convolved_image[II,JJ] = np.sum(resampled_image * psf[:resampled_image.shape[0], :resampled_image.shape[1]])
+                        convolved_image = convolved_image + image_scene[II,JJ] * psf#[:resampled_image.shape[0], :resampled_image.shape[1]]
+
+        return convolved_image
+
     def add_point_source_to_scene(self,source_index_id=None,scene_index_id=None,
                                   source_name=None,scene_name=None,
                                   xoffset_mas=0,yoffset_mas=0):
         """
-        Add a source to a previously generated scene.
-    
-        self.scenes will carry a list of dictionaries with all the information about the user-defined scenes.     
-
+        Add a point source to a previously generated scene.
+        
         Parameters
         ----------
-        mp : ModelParameters
-            Structure containing optical model parameters
-    
+        source_index_id : int, optional
+            Index of the source to be added.
+        scene_index_id : int, optional
+            Index of the scene to which the source is added.
+        source_name : str, optional
+            Name of the source.
+        scene_name : str, optional
+            Name of the scene.
+        xoffset_mas : float, optional
+            X-offset of the source in milliarcseconds (default: 0).
+        yoffset_mas : float, optional
+            Y-offset of the source in milliarcseconds (default: 0).
         """
         if self.num_scenes==0:
             warnings.warn("No scene has been defined")
@@ -172,15 +277,24 @@ class Observation():
                        passvalue_proper=None,exptime=None,
                        V3PA=0):
         """
-        Generate batch.
-    
-        self.scenes will carry a list of dictionaries with all the information about the user-defined scenes.     
-
+        Create an observation batch.
+        
         Parameters
         ----------
-        mp : ModelParameters
-            Structure containing optical model parameters
-    
+        batch_id : int, optional
+            Identifier for the batch.
+        scene_index_id : int, optional
+            Index of the scene associated with this batch.
+        scene_name : str, optional
+            Name of the scene associated with this batch.
+        jitter_x : list, optional
+            List of X-jitter values.
+        jitter_y : list, optional
+            List of Y-jitter values.
+        num_timesteps : int, optional
+            Number of timesteps in the batch.
+        V3PA : float, optional
+            Position angle of the telescope (default: 0).
         """
         # Checking that IDs are valid for scene
         if scene_index_id is not None and scene_name is not None:
@@ -320,15 +434,16 @@ class Observation():
                                     vmin_fig=None,vmax_fig=None,title_fig='',
                                     use_emccd=False,use_photoncount=False,flag_return_contrast=False,flag_compute_normalization=False):
         """
-        Generate speckle series.
-    
-
+        Generate a speckle series.
+        
         Parameters
         ----------
-        batch_id_list : list
-            List containing the batch IDs for which to generate the speckle series
-            By default use all batches
-    
+        batch_id_list : list, optional
+            List of batch IDs for which to generate speckle series.
+        outdir0 : str, optional
+            Output directory (default: 'output/SpeckleSeries/').
+        num_images_printed : int, optional
+            Number of images to print (default: 0).
         """
         outdir = self.paths['outdir']#outdir0+self.scene['name']+'/'
         if not os.path.exists(outdir):
@@ -561,11 +676,9 @@ class Observation():
         return header
             
     def load_batches_cubes(self):
-        # =============================================================================
-        # load_batches_cubes
-        # 
-        # Load pre-computed image cubes for scene
-        # =============================================================================
+        """
+        Load precomputed image cubes for the scene.
+        """
         datadir = self.paths['outdir']
         if len(self.batches)==0:
             warnings.warn("No batches!")
@@ -596,6 +709,14 @@ class Observation():
             
             
     def add_detector_noise_to_batches(self,label_out=''):
+        """
+        Add detector noise to precomputed image batches.
+        
+        Parameters
+        ----------
+        label_out : str, optional
+            Label to append to output filenames (default: '').
+        """
         from scipy.interpolate import interp1d
         
         # Load cubes into batches
